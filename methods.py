@@ -20,15 +20,15 @@ def sift_compare(img_file1, img_file2, img_roi1, out_match, debug=0):
     keypoints2 = kp.img_keypoints(img_file2)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
+    # visualize keypoints calculated
     if debug:
-        # visualize keypoints calculated
         gray= cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
         image = cv.drawKeypoints(gray, keypoints1, img1)
         cv.imwrite('vertices_debug.png', image)
 
 
     #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
-    keypoints1, descriptors1 = sift.compute(img1, keypoints1)
+    keypoints1, descriptors1 = sift.compute(img1, keypoints1) # does not work with ROI img
     keypoints2, descriptors2 = sift.compute(img2, keypoints2)
 
     matcher = cv.DescriptorMatcher_create(cv.DESCRIPTOR_MATCHER_BRUTEFORCE)

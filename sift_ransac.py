@@ -60,8 +60,8 @@ def siftMatching(img1, img2):
 
 
 
-i1 = cv2.imread('J8_S2_0.png')
-i2 = cv2.imread('J8_S2_1.png')
+i1 = cv2.imread('./data/J8_S2_0.png')
+i2 = cv2.imread('./data/J8_S2_1.png')
 src, dst = siftMatching(i1, i2)
 print("src")
 print(src)

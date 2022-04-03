@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
     img_roi1 = './data/J8_S2_0_roi.jpg'
 
-    # use.sift_compare(img_file1, img_file2, img_roi1, './aux.png', 1)
-    use.flann_compare(img_file1, img_file2, img_roi1) # does not work
+    use.sift_compare(img_file1, img_file2, img_roi1, './aux.png', 1)
+    # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
 

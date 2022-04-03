@@ -6,6 +6,4 @@ Created or edited:
 	methods.py
 	
 
-modified, but are not in use:
-	sift_my.py
 
