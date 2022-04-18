@@ -39,15 +39,15 @@ def remove_element(l, el):
 
 
 
-def our_descriptor(bin_img, roi_img, graph_img, debug=0):
+def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
     # a imagem para criar a lista de listas com as informacoes de cada keypoints
     img = cv2.imread(bin_img, 0)
     
-    roigraphraw = cv2.imread(roi_img)
-    roigraph = cv2.resize(roigraphraw, (512, 512))
-    graygraph = cvtColor(roigraph, cv2.COLOR_BGR2GRAY)
+    if(debug >= 1):
+        roigraphraw = cv2.imread(roi_img)
+        roigraph = cv2.resize(roigraphraw, (512, 512))
+        graygraph = cvtColor(roigraph, cv2.COLOR_BGR2GRAY)
 
-    if(debug):
         print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
         print()
 
@@ -55,9 +55,12 @@ def our_descriptor(bin_img, roi_img, graph_img, debug=0):
     img_neighbors = bwmorph._neighbors_conv(img==255)
 
     # list of pixels where there are vertices
-    lpvertices = keypts.img_keypoints(bin_img, 0, 1)
+    # lpvertices = keypts.img_keypoints(bin_img, 0, 1)
+    lpvertices = np.transpose(np.where(img_neighbors>2)) # returning a numpy array
+    lpvertices = lpvertices.tolist()
 
-    if(debug):
+
+    if(debug >= 2):
         print("shape of lpvertices")
         print(np.shape(lpvertices))
         for pixel in lpvertices:
@@ -152,20 +155,26 @@ def our_descriptor(bin_img, roi_img, graph_img, debug=0):
 
 
     # draw graph image over roi
-    img_graph_draw = np.stack((graygraph,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
-    for vertex in vertexes:
-        exa = vertexes[vertex]['center']
-        for ee in vertexes[vertex]['list']:
-            exb = vertexes[ee]['center']
-            if draw_antialiased:
-                rr, cc, val = line_aa(exa[0], exa[1], exb[0], exb[1])
-                img_graph_draw[rr, cc] = val.reshape(-1,1) * [0,255,0]
-            else:
-                rr, cc = line(exa[0], exa[1], exb[0], exb[1])
-                img_graph_draw[rr, cc] = [0,0,255]
+    if(debug >= 1):
+        img_graph_draw = np.stack((graygraph,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
+        for vertex in vertexes:
+            exa = vertexes[vertex]['center']
+            for ee in vertexes[vertex]['list']:
+                exb = vertexes[ee]['center']
+                if draw_antialiased:
+                    rr, cc, val = line_aa(exa[0], exa[1], exb[0], exb[1])
+                    img_graph_draw[rr, cc] = val.reshape(-1,1) * [0,255,0]
+                else:
+                    rr, cc = line(exa[0], exa[1], exb[0], exb[1])
+                    img_graph_draw[rr, cc] = [0,0,255]
 
-    if(debug):
         cv2.imwrite(graph_img, img_graph_draw)
 
-    return vertexes
-
+    # change dict keys from 0 to n
+    descriptor = {}
+    idx = 0
+    for key in vertexes:
+       descriptor[idx] = vertexes[key]
+       idx += 1
+        
+    return descriptor
