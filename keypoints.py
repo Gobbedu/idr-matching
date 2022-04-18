@@ -2,8 +2,8 @@ import cv2
 import bwmorph
 import numpy as np
 
-# YES ->returns array of keypoints to use with opencv
-def img_keypoints(img_file, debug=0):
+# returns array of keypoints to use with opencv
+def img_keypoints(img_file, opencv_kp_format=1, debug=0):
     
     img = cv2.imread(img_file, 0) # 0 to read image in grayscale mode
 
@@ -27,7 +27,7 @@ def img_keypoints(img_file, debug=0):
     for touple in vertices_pixel_tuple:
         for i in [-2,-1, 0, 1, 2]:
             for j in [-2,-1, 0, 1, 2]:
-                aux = (touple[0] + i, touple[1] + j)
+                aux = [touple[0] + i, touple[1] + j]
                 if aux in vertices_pixel_tuple and aux != touple:
                     vertices_pixel_tuple.remove(aux)
 
@@ -46,9 +46,12 @@ def img_keypoints(img_file, debug=0):
         for px in vertices_pixel_tuple:
             # print(px)
             img_bgr[px[1], px[0]] = (0,0,255)  # red. opencv uses bgr
-        cv2.imwrite('vertexes.png', img_bgr)
+        cv2.imwrite('vertexestup.png', img_bgr)
             
-            
-    return cv_keyPoints
+    if(opencv_kp_format):
+        return cv_keyPoints
+    else:
+        vertices_pixel_list = [list(reversed(tupl)) for tupl in vertices_pixel_tuple]
+        return vertices_pixel_list
 
 # img_keypoints('./data/J8_S2_0.png', 1)

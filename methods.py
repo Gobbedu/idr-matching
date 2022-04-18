@@ -1,12 +1,18 @@
 import cv2 as cv
+from cv2 import IMREAD_GRAYSCALE
+from jellyfish import match_rating_codex
+from more_itertools import nth_combination
 import numpy as np
 import matplotlib.pyplot as plt
+import ntpath
+
+from soupsieve import match
 
 import keypoints as kp
 
 
 """source[1] adapted to sift"""
-def sift_compare(img_file1, img_file2, img_roi1, out_match, debug=0):
+def sift_compare(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     sift = cv.SIFT_create()
     
     # loads the image
@@ -14,6 +20,7 @@ def sift_compare(img_file1, img_file2, img_roi1, out_match, debug=0):
     img2 = cv.imread(img_file2)
     
     roi1 = cv.imread(img_roi1)
+    roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
     keypoints1 = kp.img_keypoints(img_file1)    
@@ -28,19 +35,120 @@ def sift_compare(img_file1, img_file2, img_roi1, out_match, debug=0):
 
 
     #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
-    keypoints1, descriptors1 = sift.compute(img1, keypoints1) # does not work with ROI img
-    keypoints2, descriptors2 = sift.compute(img2, keypoints2)
+    keypoints1, descriptors1 = sift.compute(roi1, keypoints1) # does not work with ROI img
+    keypoints2, descriptors2 = sift.compute(roi2, keypoints2)
 
+    #   FALTA FAZER O RANSAC / bruteforce bad
     matcher = cv.DescriptorMatcher_create(cv.DESCRIPTOR_MATCHER_BRUTEFORCE)
     matches = matcher.match(descriptors1, descriptors2)
+
 
     #-- Draw matches
     img_matches = np.empty((max(img1.shape[0], img2.shape[0]), img1.shape[1]+img2.shape[1], 3), dtype=np.uint8)
     cv.drawMatches(img1, keypoints1, img2, keypoints2, matches, img_matches)
 
+    #-- save name of matched files
+    name1 = ntpath.basename(img_file1)
+    name2 = ntpath.basename(img_file2)
+    font = cv.FONT_HERSHEY_SIMPLEX
+    cv.putText(img_matches,name1,(0,img1.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+    cv.putText(img_matches,name2,(img1.shape[1],img2.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+
     #-- Show detected matches
     cv.imwrite(out_match , img_matches)
 
+
+
+def kp_euclidean(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
+    # loads the binary image
+    img1 = cv.imread(img_file1)
+    img2 = cv.imread(img_file2)
+    
+    roi1 = cv.imread(img_roi1)
+    roi2 = cv.imread(img_roi2)
+
+    # calculates vertices (keypoints) of img_file
+    keypoints1 = kp.img_keypoints(img_file1)    
+    keypoints2 = kp.img_keypoints(img_file2)    
+    # keypoints1 = sift.detect(gray, None) # bad, default keypoints
+
+
+
+
+    #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
+
+    #   FALTA FAZER O RANSAC / bruteforce bad
+    # MATCH com distancia euclidiana
+    # matcher = cv.DescriptorMatcher_create(cv.DESCRIPTOR_MATCHER_BRUTEFORCE)
+    # matches = matcher.match(descriptors1, descriptors2)
+
+
+    #-- Draw matches
+    # img_matches = np.empty((max(img1.shape[0], img2.shape[0]), img1.shape[1]+img2.shape[1], 3), dtype=np.uint8)
+    # cv.drawMatches(img1, keypoints1, img2, keypoints2, matches, img_matches)
+
+    #-- save name of matched files
+    # name1 = ntpath.basename(img_file1)
+    # name2 = ntpath.basename(img_file2)
+    # font = cv.FONT_HERSHEY_SIMPLEX
+    # cv.putText(img_matches,name1,(0,img1.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+    # cv.putText(img_matches,name2,(img1.shape[1],img2.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+
+    #-- Show detected matches
+    # cv.imwrite(out_match , img_matches)
+
+
+
+def knn(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
+    sift = cv.SIFT_create()
+    
+    # loads the image
+    img1 = cv.imread(img_file1)
+    img2 = cv.imread(img_file2)
+    
+    roi1 = cv.imread(img_roi1)
+    roi2 = cv.imread(img_roi2)
+
+    # calculates vertices (keypoints) of img_file
+    keypoints1 = kp.img_keypoints(img_file1)    
+    keypoints2 = kp.img_keypoints(img_file2)    
+    # keypoints1 = sift.detect(gray, None) # bad, default keypoints
+
+    # visualize keypoints calculated
+    if debug:
+        gray= cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
+        image = cv.drawKeypoints(gray, keypoints1, img1)
+        cv.imwrite('vertices_debug.png', image)
+
+
+    #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
+    keypoints1, descriptors1 = sift.compute(roi1, keypoints1) # does not work with ROI img
+    keypoints2, descriptors2 = sift.compute(roi2, keypoints2)
+
+    #   FALTA FAZER O RANSAC / bruteforce bad
+    # matcher = cv.DescriptorMatcher_create(cv.DESCRIPTOR_MATCHER_BRUTEFORCE)
+    # matches = matcher.match(descriptors1, descriptors2)
+    matcher = cv.BFMatcher()
+    matches =  matcher.knnMatch(descriptors1, descriptors2, k=2)
+
+    good = []
+    for m,n in matches:
+        if m.distance < 1*n.distance: # default is .75
+            good.append([m])
+
+    #-- Draw matches
+    img_matches = cv.drawMatchesKnn(img1, keypoints1, img2, keypoints2, good,None, flags=2)
+
+    #-- save name of matched files
+    name1 = ntpath.basename(img_file1)
+    name2 = ntpath.basename(img_file2)
+    font = cv.FONT_HERSHEY_SIMPLEX
+    cv.putText(img_matches,name1,(0,img1.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+    cv.putText(img_matches,name2,(img1.shape[1],img2.shape[0]-10), font, 0.5,(255,255,255),1,cv.LINE_AA)
+
+    #-- Show detected matches
+    cv.imwrite(out_match , img_matches)
+    return 
 
 """source[2]"""
 def flann_compare(img_file1, img_file2, img_roi1):
@@ -96,11 +204,33 @@ def flann_compare(img_file1, img_file2, img_roi1):
     img3 = cv.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
     plt.imshow(img3, 'gray'),plt.show()
 
+   
+"""[3]"""
+def blob_visualize(bin_img, img_roi, out_img, useMyKeypts=True ):
+    roi_img = cv.imread(img_roi)
+    img = cv.resize(roi_img, (512, 512))
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    sift = cv.SIFT_create()
+    
+    # KeyPoints default/extracted from binary Image
+    if(useMyKeypts):
+        keypts = kp.img_keypoints(bin_img)
+        keypts, descript = sift.compute(img, keypts)
+    else:
+        keypts, descript = sift.detectAndCompute(gray, None)
+
+    img=cv.drawKeypoints(gray,keypts,img,flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    
+    # img = cv.drawKeypoints(gray, keypts, img)
+
+    cv.imwrite(out_img, img)    
+   
             
 """
 source[1]: https://docs.opencv.org/3.4/d5/dde/tutorial_feature_description.html
 source[2]: https://docs.opencv.org/4.x/d1/de0/tutorial_py_feature_homography.html
-
+source[3]: https://docs.opencv.org/4.x/da/df5/tutorial_py_sift_intro.html
    
 #[1]
 #-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors
