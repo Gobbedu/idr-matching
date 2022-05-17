@@ -3,8 +3,11 @@ import bwmorph
 import numpy as np
 
 # returns array of keypoints to use with opencv
-def img_keypoints(img_file, opencv_kp_format=1, debug=0):
-    
+def img_keypoints(img_file, opencv_kp_format=False, debug=False):
+    """ 
+    Returs a list of pixels, representing a binary image keypoints
+    eg: [[0,0], [5, 5]]
+    """
     img = cv2.imread(img_file, 0) # 0 to read image in grayscale mode
 
     if debug:
@@ -25,9 +28,9 @@ def img_keypoints(img_file, opencv_kp_format=1, debug=0):
     
     # clean coupled pixels
     for touple in vertices_pixel_tuple:
-        for i in [-2,-1, 0, 1, 2]:
-            for j in [-2,-1, 0, 1, 2]:
-                aux = [touple[0] + i, touple[1] + j]
+        for i in range(-2, 2):
+            for j in range(-2, 2):
+                aux = (touple[0] + i, touple[1] + j)
                 if aux in vertices_pixel_tuple and aux != touple:
                     vertices_pixel_tuple.remove(aux)
 
@@ -37,9 +40,7 @@ def img_keypoints(img_file, opencv_kp_format=1, debug=0):
             print(vertices_pixel_tuple[i])
 
     
-    #CONVERTS LIST OF TUPLE (X,Y) TO KEYPOINTS
-    cv_keyPoints = cv2.KeyPoint_convert(vertices_pixel_tuple)
-    
+        
     # make image w/ highlighted vertices
     if debug:   
         img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
@@ -49,9 +50,11 @@ def img_keypoints(img_file, opencv_kp_format=1, debug=0):
         cv2.imwrite('vertexestup.png', img_bgr)
             
     if(opencv_kp_format):
+        #CONVERTS LIST OF TUPLE (X,Y) TO KEYPOINTS
+        cv_keyPoints = cv2.KeyPoint_convert(vertices_pixel_tuple)
         return cv_keyPoints
     else:
         vertices_pixel_list = [list(reversed(tupl)) for tupl in vertices_pixel_tuple]
         return vertices_pixel_list
 
-# img_keypoints('./data/J8_S2_0.png', 1)
+# img_keypoints('./data/J8_S2_0.png', 1, True)

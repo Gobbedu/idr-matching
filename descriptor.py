@@ -13,13 +13,18 @@ from skimage.draw import line, line_aa
 #from skimage import graph, morphology
 #from skimage.graph import route_through_array
 
-"""HARD COPY DE TT-BACKUP.PY"""
+"""COPY DE TT-BACKUP.PY"""
 
 """OUR_DESCRIPTOR
 
 Returns:
     list: list of lists with {'center': px, 'list': [], 'dist': [], 'ang': []}
     which will be the keypoints descriptor
+    e.g.
+    {'center': [8, 276], 
+    'list': [8, 11], 
+    'dist': [34.17601498127012, 39.35733730830886], 
+    'ang': [159.44395478041653, 27.216111557307478]}
 """
 import bwmorph
 
@@ -38,45 +43,58 @@ def remove_element(l, el):
         print("couldn't remove %s from %s" % (el, l))
 
 
-
 def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
+    """ 
+    Returns a dict with keys 0 to n and values as a subdict:
+        dict {'center': px, 'list': [], 'dist': [], 'ang': []}
+        e.g.:\n
+        {0: {'center': [0, 1], 
+            'list': [neighboring keys of dict], 
+            'dist': [dist to key in list], 
+            'ang': [ang to key in list]}
+        }
+
+    debug == 1 prints basic info and output image in graph_img,\n
+    debug == 2 prints every single vertices from keypoints extracted
+    """
+    
     # a imagem para criar a lista de listas com as informacoes de cada keypoints
     img = cv2.imread(bin_img, 0)
     
-    if(debug >= 1):
+    if debug >= 1:
         roigraphraw = cv2.imread(roi_img)
         roigraph = cv2.resize(roigraphraw, (512, 512))
         graygraph = cvtColor(roigraph, cv2.COLOR_BGR2GRAY)
-
-        print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
-        print()
+    #     print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
+    #     print()
 
 
     img_neighbors = bwmorph._neighbors_conv(img==255)
 
     # list of pixels where there are vertices
-    # lpvertices = keypts.img_keypoints(bin_img, 0, 1)
     lpvertices = np.transpose(np.where(img_neighbors>2)) # returning a numpy array
     lpvertices = lpvertices.tolist()
+    # lpvertices = keypts.img_keypoints(bin_img)
 
 
-    if(debug >= 2):
-        print("shape of lpvertices")
-        print(np.shape(lpvertices))
-        for pixel in lpvertices:
-            print(f"pixel{pixel}")
-            # print(pixel)
-            print(pixel[0])
-            print(pixel[1])
+    # if(debug >= 2):
+    #     print("shape of lpvertices")
+    #     print(np.shape(lpvertices))
+    #     for pixel in lpvertices:
+    #         print(f"pixel{pixel}")
+    #         # print(pixel)
+    #         print(pixel[0])
+    #         print(pixel[1])
 
-        img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
-        for px in lpvertices:
-            img_bgr[px[0], px[1]] = (0,0,255)  # red. opencv uses bgr
-        cv2.imwrite('vertexes.png', img_bgr)
+    #     img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
+    #     for px in lpvertices:
+    #         img_bgr[px[0], px[1]] = (0,0,255)  # red. opencv uses bgr
+    #     cv2.imwrite('vertexes.png', img_bgr)
 
 
     imgv, nvertices = scipy.ndimage.label(img_neighbors>2)
-    print('vertices: %d  |  vertex pixels: %d' % (nvertices, len(lpvertices)))
+    # if debug >= 1:
+    #     print('vertices: %d  |  vertex pixels: %d' % (nvertices, len(lpvertices)))
 
     #imgv - label of vertices
     #img_neighbors - connectivity of graph pixels
@@ -131,7 +149,8 @@ def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
     for v in sorted(vertexes):
         n_edges += len(vertexes[v])
     #    print('{}: {}'.format(v, vertexes[v]))
-    print("edges:", n_edges)
+    # if debug >= 1:
+    #     print("edges:", n_edges)
 
 
     # removes isolated vertexes (those that are only connected to 1 other)
@@ -140,7 +159,8 @@ def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
     while isolated_vertexes:
         isolated_vertexes = False
         counter = 0
-        print("lenn", len(vertexes))
+        # if debug >= 2:
+        #     print("lenn", len(vertexes))
         for i in range(0, len(vertexes)+1):
             try:
                 if(len(vertexes[i]['list']) == 1):
@@ -151,7 +171,8 @@ def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
                     counter += 1
             except:
                 continue
-        print("removed %d vertexes" % counter)
+        # if debug >= 1:
+        #     print("removed %d vertexes" % counter)
 
 
     # draw graph image over roi
@@ -178,3 +199,8 @@ def our_descriptor(bin_img, roi_img=None, graph_img=None, debug=0):
        idx += 1
         
     return descriptor
+
+our_descriptor('./data/J8_S2_0.png', 
+               roi_img='./data/J8_S2_0_roi.jpg',
+               graph_img='graphimg.png',
+               debug=1)
