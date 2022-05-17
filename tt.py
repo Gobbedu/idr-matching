@@ -34,13 +34,31 @@ def calc_angle(vertexes, i1, i2):
     return math.degrees(math.atan2(vertexes[i1]['center'][0]-vertexes[i2]['center'][0], vertexes[i1]['center'][1]-vertexes[i2]['center'][1]))
 
 def create_edge(vertexes, i1, i2):  # lvx, lvp
-    vertexes[i1]['list'].append(i2)
-    vertexes[i2]['list'].append(i1)
+    vertexes[i1]['neigh'].append(i2)
+    vertexes[i2]['neigh'].append(i1)
     vertexes[i1]['dist'].append(calc_dist(vertexes, i1, i2))
     vertexes[i2]['dist'].append(calc_dist(vertexes, i2, i1))
     vertexes[i1]['ang'].append(calc_angle(vertexes, i1, i2))
     vertexes[i2]['ang'].append(calc_angle(vertexes, i2, i1))
+    return
 
+def create_vertex(center=None, neigh=None, dist=None, ang=None):  # i don't understand why i have to do this pls help. compare to the more reasonable code next
+    if center is None:
+        center = []
+    if neigh is None:
+        neigh = []
+    if dist is None:
+        dist = []
+    if ang is None:
+        ang = []
+    vertex = {'center': center, 'neigh': neigh, 'dist': dist, 'ang': ang}
+    return vertex
+
+#def create_vertex(center=[], neigh=[], dist=[], ang=[]):  # this destroys the universe
+#    return {'center': center, 'neigh': neigh, 'dist': dist, 'ang': ang}
+
+
+# def remove_reference(vertexes, i, i_to_remove):
 
 
 img = cv2.imread('./data/2-seg/_j-smol/J8/J8_S2_1.png', 0)
@@ -74,8 +92,9 @@ while pt < len(lpgraph):
     img_state[px[0], px[1]] = 1
 
     if img_neighbors[px[0], px[1]] > 2: # is a vertex pixel
-        lvp = imgv[px[0], px[1]] # initializing graph 
-        vertexes[lvp] = {'center': px, 'list': [], 'dist': [], 'ang': []}
+        lvp = imgv[px[0], px[1]] # initializing graph
+        # vertexes[lvp] = {'center': px, 'neigh': [], 'dist': [], 'ang': []}
+        vertexes[lvp] = create_vertex(center=px)
     else:
         lvp = img_graph[px[0], px[1]]
 
@@ -116,7 +135,7 @@ for vertex in vertexes:
         dist = vertexes[vertex]['dist'][i]
         if dist < TOO_SHORT:
             index1 = vertex
-            index2 = vertexes[vertex]['list'][i]  # reference to relevant neighbor
+            index2 = vertexes[vertex]['neigh'][i]  # reference to relevant neighbor
             vertex1 = vertexes[index1]
             vertex2 = vertexes[index2]
             
@@ -140,24 +159,28 @@ print(vertexes_to_update)
 
 max_index = len(vertexes)
 for e in vertexes_to_update:
+    '''
     max_index += 1
     # creates new vertex
     v1 = vertexes[e[0]]
     v2 = vertexes[e[1]]
-    s = set(v1['list'] + v2['list'])
+    s = set(v1['neigh'] + v2['neigh'])
     remove_element(s, e[0])
     remove_element(s, e[1])
     s = list(s)
-    new_vertex = {'center': np.around(np.add(vertex1['center'], vertex2['center'])/2).astype(int).tolist(), 'list': s, 'dist': [], 'ang': []}
+    new_vertex = create_vertex(center=np.around(np.add(vertex1['center'], vertex2['center'])/2).astype(int).tolist(), neigh=s)
     vertexes[max_index] = new_vertex
-    for i in s:
+    print("nv", new_vertex)
+    for i in s: # removes old references in neighbors
+        
+        print('e', e[0], e[1])
         # calculates new values
         
-    
-    print('nv', new_vertex)
-
+        # create_edge(vertexes, max_index, i) 
+        
+    '''
     print('#')
-    print(e)
+    # print(e)
     
 
 # ......
@@ -172,9 +195,9 @@ while isolated_vertexes:
     print("lenn", len(vertexes))
     for i in range(0, len(vertexes)+1):
         try:
-            if(len(vertexes[i]['list']) == 1):
-                other_index = vertexes[i]['list'][0]
-                remove_element(vertexes[other_index]['list'], i)
+            if(len(vertexes[i]['neigh']) == 1):
+                other_index = vertexes[i]['neigh'][0]
+                remove_element(vertexes[other_index]['neigh'], i)
                 del vertexes[i]
                 isolated_vertexes = True
                 counter += 1
@@ -183,14 +206,14 @@ while isolated_vertexes:
     print("removed %d vertexes" % counter)
 
 #for e in vertexes:
-#    if(len(vertexes[e]['list'])) <= 1:
+#    if(len(vertexes[e]['neigh'])) <= 1:
         
 
 
 img_graph_draw = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
 for vertex in vertexes:
     exa = vertexes[vertex]['center']
-    for ee in vertexes[vertex]['list']:
+    for ee in vertexes[vertex]['neigh']:
         exb = vertexes[ee]['center']
         if draw_antialiased:
             rr, cc, val = line_aa(exa[0], exa[1], exb[0], exb[1])
@@ -211,4 +234,4 @@ print(lvp, lvx)
 # print(lpvertices)
 
 # for i in vertexes:
-#    print(len(vertexes[i]['list']))
+#    print(len(vertexes[i]['neigh']))
