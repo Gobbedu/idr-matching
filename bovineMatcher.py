@@ -4,16 +4,14 @@
 # # soh copiei e colei uma organizacao legal aki
 # TODO: comentarios
 from math import inf, sqrt
-# from cv2 import KeyPoint
 
-# import scipy
-# from plot import bov_plot
-# from keypoints import img_keypoints
-# from descriptor import our_descriptor
-# import numpy as np
-# import cv2
+import scipy
+from plot import bov_plot
+from keypoints import img_keypoints
+from descriptor import our_descriptor
+import numpy as np
+import cv2
 
-from sources import *
 
 class our_matcher:
     """
@@ -222,7 +220,7 @@ class our_matcher:
 
         for p in self.keypoints:
             # c1, r1 = p 
-            r1, c1 = p
+            c1, r1 = p
 
             # Draw a small circle at both co-ordinates
             cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)

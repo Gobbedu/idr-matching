@@ -4,7 +4,7 @@ import methods as use
 # import descriptor as ds
 # from bovineMatcher import *
 # from plot import bov_plot
-# from ransac import ransac
+from ransac import ransac
 from bovineMatcher import *
 
 file1 = './data/J8_S2_0.png'
@@ -17,10 +17,11 @@ roi2 = './data/J8_S2_1_roi.jpg'
 
 
 def main():
-    test_matcher()
+    # test_matcher()
     test_keypoints()
-    test_descr_center()
-    vertice_distance(file1, file2)
+    # test_descr_center()
+    # vertice_distance(file1, file2)
+    # test_descriptor()
     
 def test_keypoints():
     test = our_matcher(file1)
@@ -97,17 +98,17 @@ def test_descriptor():
     des3 = our_descriptor(file3)
 
     #testing descriptor extraction
-    print(des1[0])
-    for key in des1[0]:
-        print("key: ",key, "| value: ",des1[0][key], "| content :", end='')
-        for i in range(len(des1[0][key])):
-            print("(",i,")", des1[0][key][i],",", end='')
-        print()
+    # print(des1[0])
+    # for key in des1[0]:
+    #     print("key: ",key, "| value: ",des1[0][key], "| content :", end='')
+    #     for i in range(len(des1[0][key])):
+    #         print("(",i,")", des1[0][key][i],",", end='')
+    #     print()
     
     # use.sift_compare(file1, file1, roi1, roi1, './results/sample03.png')
     # use.knn(file1, file2, roi1, roi2, './aux.png')
     # use.blob_visualize(file1, roi1, "OurKeyptsSift.png", True)
-    # use.blob_visualize(file1, roi1, "defaultSift.png", False)
+    use.blob_visualize(file1, roi1, "defaultSift.png", False)
     # use.blob_visualize(file2, roi2, "defaultSift1.png", False)
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     

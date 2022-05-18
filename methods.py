@@ -1,12 +1,7 @@
 import cv2 as cv
-from cv2 import IMREAD_GRAYSCALE
-from jellyfish import match_rating_codex
-from more_itertools import nth_combination
 import numpy as np
 import matplotlib.pyplot as plt
 import ntpath
-
-from soupsieve import match
 
 import keypoints as kp
 
@@ -23,8 +18,8 @@ def sift_compare(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1)    
-    keypoints2 = kp.img_keypoints(img_file2)    
+    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     # visualize keypoints calculated
@@ -68,8 +63,8 @@ def kp_euclidean(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1)    
-    keypoints2 = kp.img_keypoints(img_file2)    
+    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
 
@@ -110,8 +105,8 @@ def knn(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1)    
-    keypoints2 = kp.img_keypoints(img_file2)    
+    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     # visualize keypoints calculated
@@ -164,8 +159,8 @@ def flann_compare(img_file1, img_file2, img_roi1):
     sift = cv.SIFT_create()
 
     # calculates vertices (keypoints) of img_file
-    kp1 = kp.img_keypoints(img_file1)    
-    kp2 = kp.img_keypoints(img_file2)    
+    kp1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
+    kp2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
@@ -215,7 +210,7 @@ def blob_visualize(bin_img, img_roi, out_img, useMyKeypts=True ):
     
     # KeyPoints default/extracted from binary Image
     if(useMyKeypts):
-        keypts = kp.img_keypoints(bin_img)
+        keypts = kp.img_keypoints(bin_img, opencv_kp_format=True)
         keypts, descript = sift.compute(img, keypts)
     else:
         keypts, descript = sift.detectAndCompute(gray, None)
@@ -224,7 +219,9 @@ def blob_visualize(bin_img, img_roi, out_img, useMyKeypts=True ):
     
     # img = cv.drawKeypoints(gray, keypts, img)
 
-    cv.imwrite(out_img, img)    
+    # cv.imwrite(out_img, img)    
+    cv.imshow("image", img)
+    cv.waitKey(0)
    
             
 """
