@@ -6,12 +6,15 @@
 from math import inf, sqrt
 
 import scipy
+from sklearn.metrics import euclidean_distances
 from plot import bov_plot
 from keypoints import img_keypoints
 from descriptor import our_descriptor
 import numpy as np
 import cv2
-from tt import graph_from_seg
+from tt import gen_graph
+from scipy.spatial import distance
+
 
 class our_matcher:
     """
@@ -28,7 +31,7 @@ class our_matcher:
         # self.keypoints = img_keypoints(binary_img)
         self.bin_img = binary_img
         self.descriptor = list()
-        # self.keypoints = list()
+        self.keypoints = list()
         self.matches = list()
     
     def _extract_features(self):
@@ -45,7 +48,7 @@ class our_matcher:
         """
         # self.keypoints = img_keypoints(self.bin_img)
         
-        return graph_from_seg(self.bin_img)
+        raw_descriptor = gen_graph(self.bin_img)
         
         # VERIFICA SIMILARIDADE
         # P = 0
@@ -66,7 +69,8 @@ class our_matcher:
         # reshape descriptor
         for key in raw_descriptor:
             # PRECISA CORRIGIR DESCRIPTOR, idx de vertice removido existe em 'list'
-            if len(raw_descriptor[key]['list']) == 3 and max(raw_descriptor[key]['list']) < len(raw_descriptor):
+            if len(raw_descriptor[key]['neigh']) == 3 and max(raw_descriptor[key]['neigh']) < len(raw_descriptor):
+                self.keypoints.append(raw_descriptor[key]['center'])
                 # print(raw_descriptor[key])
                 cx, cy , d, a = [], [], [], []
                 
@@ -74,7 +78,7 @@ class our_matcher:
                 cy.append(raw_descriptor[key]['center'][1])
                 # print("pertence? ", cx + cy in self.keypoints)
                 if cx + cy in self.keypoints:
-                    for neighkey in raw_descriptor[key]['list']:
+                    for neighkey in raw_descriptor[key]['neigh']:
                         # print("neigh c:", raw_descriptor[neighkey]['center'])
                         cx.append(raw_descriptor[neighkey]['center'][0])
                         cy.append(raw_descriptor[neighkey]['center'][1])
@@ -93,7 +97,7 @@ class our_matcher:
         
         # print(len(self.descriptor))            
 
-        # return self.keypoints, self.descriptor
+        return self.keypoints, self.descriptor
 
     def _match_features(descr1, descr2):
         """
@@ -103,6 +107,8 @@ class our_matcher:
         
         if len(descr2) < len(descr1):
             descr1, descr2 = descr2, descr1
+            
+        # dist = lambda x, y: distance.euclidean(x, y)
         
         matches = []
         for d1 in descr1:
@@ -111,7 +117,8 @@ class our_matcher:
             for d2 in descr2:
                 # DMatch Euclidean
                 sum = 0
-                for i in d1:
+                for i in range(len(d1)):
+                    # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
                     sum += (d1[i] - d2[i])*(d1[i] - d2[i])
                 euclidean = sqrt(sum)
                 if euclidean < mini:
@@ -119,7 +126,9 @@ class our_matcher:
                     smol = d2
                     
             if smol: # not empty
-                matches.append([mini, (d1['center'], smol['center'])])
+                # matches.append([mini, (descr1[d1]['center'], descr2[smol]['center'])])
+                matches.append([mini, (d1, smol)])
+                
                 
         matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean dist  
         return matches

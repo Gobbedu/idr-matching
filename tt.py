@@ -1,5 +1,5 @@
 # generates a graph from a segmented black&white image.
-# call with graph_from_seg(img_path)
+# call with gen_graph(img_path)
 
 import cv2
 import numpy as np
@@ -11,7 +11,7 @@ from skimage.draw import line, line_aa
 
 import bwmorph
 
-IMG_PATH = './data/2-seg/_p-smol/G574/S2_G574_5yb.png'
+IMG_PATH = './data/2-seg/_j-smol/J8/J8_S2_0.png'
 
 TOO_SHORT = 15.0
 ISO_NEIGH = 1
@@ -71,7 +71,7 @@ def count(vertexes):
     return
 
 
-def graph_from_seg(img_path):
+def gen_graph(img_path):
     img = cv2.imread(img_path, 0)
     print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
 
@@ -201,7 +201,9 @@ def graph_from_seg(img_path):
                 vertexes_to_remove.append(vertexes_to_check[0])
             vertexes_to_check.pop(0)
 
+        vertexes_to_remove = list(set(vertexes_to_remove))  # removes duplicates lol
         print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
+
         while vertexes_to_remove:
             for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
                 vertexes_to_check.append(j)
@@ -239,8 +241,8 @@ def graph_from_seg(img_path):
         img_visual[px[0], px[1]] = (255,128,128)  # weird lightblue
 
 
-    cv2.imwrite('_graph.png', img_visual)
-    return 0  # arbitrary value as of now
+    # cv2.imwrite('_graph.png', img_visual)
+    return vertexes  # arbitrary value as of now
 
 
-# graph_from_seg(IMG_PATH)
+# gen_graph(IMG_PATH)
