@@ -11,7 +11,7 @@ from skimage.draw import line, line_aa
 
 import bwmorph
 
-IMG_PATH = './data/2-seg/_p-smol/G574/S2_G574_5yb.png'
+IMG_PATH = './data/2-seg/_j-smol/J8/J8_S2_0.png'
 
 TOO_SHORT = 15.0
 ISO_NEIGH = 1
@@ -201,7 +201,9 @@ def gen_graph(img_path):
                 vertexes_to_remove.append(vertexes_to_check[0])
             vertexes_to_check.pop(0)
 
+        vertexes_to_remove = list(set(vertexes_to_remove))  # removes duplicates lol
         print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
+
         while vertexes_to_remove:
             for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
                 vertexes_to_check.append(j)
