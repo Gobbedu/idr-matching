@@ -33,7 +33,7 @@ def create_edge(vertexes, i1, i2):  # lvx, lvp
     vertexes[i2]['ang'].append(calc_angle(vertexes, i2, i1))
     return
 
-def create_vertex(center=None, neigh=None, dist=None, ang=None):  
+def create_vertex(center=None, neigh=None, dist=None, ang=None):  # improvement by Gobbo
     params = locals()
     for i in params:
         params[i] = [] if params[i] is None else params[i]
