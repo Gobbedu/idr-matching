@@ -11,7 +11,7 @@ from keypoints import img_keypoints
 from descriptor import our_descriptor
 import numpy as np
 import cv2
-
+from tt import graph_from_seg
 
 class our_matcher:
     """
@@ -28,7 +28,7 @@ class our_matcher:
         # self.keypoints = img_keypoints(binary_img)
         self.bin_img = binary_img
         self.descriptor = list()
-        self.keypoints = list()
+        # self.keypoints = list()
         self.matches = list()
     
     def _extract_features(self):
@@ -43,9 +43,9 @@ class our_matcher:
             a = angle for neighbour vertices  
             and keypoints list of pixels, list of lists 
         """
-        self.keypoints = img_keypoints(self.bin_img)
+        # self.keypoints = img_keypoints(self.bin_img)
         
-        raw_descriptor = our_descriptor(self.bin_img)
+        return graph_from_seg(self.bin_img)
         
         # VERIFICA SIMILARIDADE
         # P = 0
@@ -93,7 +93,7 @@ class our_matcher:
         
         # print(len(self.descriptor))            
 
-        return self.keypoints, self.descriptor
+        # return self.keypoints, self.descriptor
 
     def _match_features(descr1, descr2):
         """
@@ -111,7 +111,7 @@ class our_matcher:
             for d2 in descr2:
                 # DMatch Euclidean
                 sum = 0
-                for i in range(len(d1)):
+                for i in d1:
                     sum += (d1[i] - d2[i])*(d1[i] - d2[i])
                 euclidean = sqrt(sum)
                 if euclidean < mini:
@@ -119,7 +119,7 @@ class our_matcher:
                     smol = d2
                     
             if smol: # not empty
-                matches.append([mini, (d1, smol)])
+                matches.append([mini, (d1['center'], smol['center'])])
                 
         matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean dist  
         return matches

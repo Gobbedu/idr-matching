@@ -10,15 +10,14 @@ from bovineMatcher import *
 file1 = './data/J8_S2_0.png'
 file2 = './data/J8_S2_1.png'
 file3 = './data/S1_I39_1yb.png'
-graphed = './results/segmetationGraph.png'
 
 roi1 = './data/J8_S2_0_roi.jpg'
-roi2 = './data/J8_S2_1_roi.jpg'
+# roi2 = './data/J8_S2_1_roi.jpg'
 
 
 def main():
-    # test_matcher()
-    test_keypoints()
+    test_matcher()
+    # test_keypoints()
     # test_descr_center()
     # vertice_distance(file1, file2)
     # test_descriptor()
@@ -34,8 +33,8 @@ def test_descr_center():
 def test_matcher():
     test1 = our_matcher(file1)
     test2 = our_matcher(file2)
-    kp1, desc1 = test1._extract_features()
-    kp2, desc2 = test2._extract_features()
+    desc1 = test1._extract_features()
+    desc2 = test2._extract_features()
     
     matches = our_matcher._match_features(desc1, desc2)
     # print(matches)
@@ -45,10 +44,10 @@ def test_matcher():
     #     print("distance: ",m[0])
     # print(len(matches))
 
-    out_img = our_matcher.draw_good_matches(file1, kp1, file2, kp2, matches)
-    # cv2.imwrite("results/our_descr_match.png", out_img)
-    cv2.imshow("image", out_img)
-    cv2.waitKey(0)
+    # out_img = our_matcher.draw_good_matches(file1, kp1, file2, kp2, matches)
+    # # cv2.imwrite("results/our_descr_match.png", out_img)
+    # cv2.imshow("image", out_img)
+    # cv2.waitKey(0)
     
     
 def iterate_directory():
