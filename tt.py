@@ -6,14 +6,10 @@ import math
 from scipy.spatial import distance
 from skimage.draw import line, line_aa
 
-# renamed list_edges to vertexes (because that's what it actually is)
-
-#from skimage import graph, morphology
-#from skimage.graph import route_through_array
-
 import bwmorph
 
-TOO_SHORT = 7.0
+TOO_SHORT = 15.0
+ISO_NEIGH = 1
 draw_antialiased = False
 DEBUGPRINT = False
 
@@ -21,16 +17,6 @@ def debugprint(s):
     if DEBUGPRINT:
         print(s)
 
-def unlevel(obj):
-    while isinstance(obj, np.ndarray) and len(obj) == 1:
-        obj = obj[0]
-    return obj
-
-def remove_element(l, el):
-    try:
-        l.remove(el)
-    except:
-        print("couldn't remove %s from %s" % (el, l))
 
 def calc_dist(vertexes, i1, i2):
     return distance.euclidean(vertexes[i1]['center'], vertexes[i2]['center'])
@@ -54,7 +40,7 @@ def create_vertex(center=None, neigh=None, dist=None, ang=None):
     return params
 
 
-def remove_reference(vertexes, i, i_to_remove):
+def remove_reference(vertexes, i, i_to_remove):  # index of vertex containing reference to be removed, index of reference to remove
     try:
         index_rem = vertexes[i]['neigh'].index(i_to_remove)
         for k in vertexes[i]:
@@ -65,28 +51,38 @@ def remove_reference(vertexes, i, i_to_remove):
     return
 
 
+def remove_vertex(vertexes, i):  # index of vertex to remove. remove all references to it in neighbors, then remove the vertex itself
+    for n in vertexes[i]['neigh']:
+        remove_reference(vertexes, n, i)
+    vertexes.pop(i)
+    return
+
+
+def count(vertexes):
+    n_edges = 0
+    for v in sorted(vertexes):
+        n_edges += len(vertexes[v])
+    print("vertexes: %d  |  edges: %d" % (len(vertexes), n_edges))
+    return
+
+
 img = cv2.imread('./data/2-seg/_j-smol/J8/J8_S2_1.png', 0)
 print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
-print()
 
 img_neighbors = bwmorph._neighbors_conv(img==255)
 
-lpvertices = np.transpose(np.where(img_neighbors>2)) # returning a numpy array
+lpvertices = np.transpose(np.where(img_neighbors>2))  # returning a numpy array
 lpvertices = lpvertices.tolist()
 img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
-for px in lpvertices:
-    img_bgr[px[0], px[1]] = (0,0,255)  # red. opencv uses bgr
-cv2.imwrite('_vertices.png', img_bgr)
-
 imgv, nvertices = scipy.ndimage.label(img_neighbors>2)
-print('vertices: %d  |  vertex pixels: %d' % (nvertices, len(lpvertices)))
+print('vertex pixels: %d' % (len(lpvertices)))
 
-#imgv - label of vertices
-#img_neighbors - connectivity of graph pixels
-img_graph = np.zeros(img.shape, dtype='i') # - graph
-img_state = np.zeros(img.shape, dtype='i') # - state
+# imgv - label of vertices
+# img_neighbors - connectivity of graph pixels
+img_graph = np.zeros(img.shape, dtype='i')  # - graph
+img_state = np.zeros(img.shape, dtype='i')  # - state
 vertexes = {}  # list of edges based on label of vertices
-lpgraph = lpvertices
+lpgraph = lpvertices.copy()
 neighbors = [(-1,-1),(-1,0),(-1,1),(0,-1)     ,(0,1),(1,-1),(1,0),(1,1)]
 pt = 0
 while pt < len(lpgraph):
@@ -95,9 +91,8 @@ while pt < len(lpgraph):
     if img_state[px[0], px[1]] == 1: continue
     img_state[px[0], px[1]] = 1
 
-    if img_neighbors[px[0], px[1]] > 2: # is a vertex pixel
-        lvp = imgv[px[0], px[1]] # initializing graph
-        # vertexes[lvp] = {'center': px, 'neigh': [], 'dist': [], 'ang': []}
+    if img_neighbors[px[0], px[1]] > 2:  # is a vertex pixel
+        lvp = imgv[px[0], px[1]]  # initializing graph
         vertexes[lvp] = create_vertex(center=px)
     else:
         lvp = img_graph[px[0], px[1]]
@@ -118,121 +113,113 @@ while pt < len(lpgraph):
             if lvx == 0:
                 lpgraph.append([x0,x1])
                 img_graph[x0, x1] = lvp
-#                print('neighbors: ', x0, x1, img[x0, x1], img_graph[x0, x1])
-            elif lvx != lvp:  # we don't merge vertexes here to avoid bugs with retroactively updating
+            elif lvx != lvp:  # we don't merge vertexes here to avoid bugs with retroactively updating, but there must be a better way
                 create_edge(vertexes, lvx, lvp)
 
-
-n_edges = 0
-for v in sorted(vertexes):
-    n_edges += len(vertexes[v])
-#    print('{}: {}'.format(v, vertexes[v]))
-print("edges:", n_edges)
+count(vertexes)
 
 
 
 # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
 # if distance between two vertexes is too small, merge vertexes into their central coordinate.
 # we do this step before the next one (removing isolated vertexes), as vertexes that are too close together would not be considered to be isolated
+print()
+print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 
-# begin by generating a list of edges to update
+# begin by generating a list of vertexes to merge
 vertexes_to_merge = set()
-for vertex in vertexes:  # small issue: this checks every edge twice
+for vertex in vertexes:  # small optimization issue: this checks every edge twice ("on the way forward", and "on the way back")
     for i in range(len(vertexes[vertex]['dist'])):  # checks distance value of all edges for that vertex
         dist = vertexes[vertex]['dist'][i]
         if dist < TOO_SHORT:
             index1 = vertex
             index2 = vertexes[vertex]['neigh'][i]  # reference to relevant neighbor
-            vertex1 = vertexes[index1]
-            vertex2 = vertexes[index2]
-
-            vertexes_to_merge.add(frozenset([index1, index2]))  # adds indexes of vertexes to update
+            vertexes_to_merge.add(frozenset([index1, index2]))  # adds indexes of vertexes to update. by using a set, we avoid dealing with duplicates like [42,69] and [69,42]
 
 vertexes_to_merge = [list(i) for i in list(vertexes_to_merge)]  # cast to list for better usability
-print()
-print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 print("detected %d merges to execute: %s" % (len(vertexes_to_merge), vertexes_to_merge))
-print()
-
 
 # after generating list of vertexes to merge, perform the corresponding updates on their neighbors and the merges
-max_index = len(vertexes)
+max_index = len(vertexes)  # the new (merged) vertexes will be added at the end
 for e in vertexes_to_merge:
-    max_index += 1  # the new (merged) vertexes will be added at the end
+    # add the undefined new vertex, except for its central point. we must calculate the centre before removing the vertexes to-merge, as then that information would be lost
+    max_index += 1  # increment index
+    vertexes[max_index] = create_vertex(center=np.around(np.add(vertexes[e[0]]['center'], vertexes[e[1]]['center'])/2).astype(int).tolist())
 
     # get the set of neighbors from the vertexes to be merged (those are the neighbors from the future merged vertex)
-    # then, remove the vertexes to be merged from that set
     s = set(vertexes[e[0]]['neigh'] + vertexes[e[1]]['neigh'])  # we use a set in order to automatically deal with duplicates
-    remove_element(s, e[0])
-    remove_element(s, e[1])
+    s.discard(e[0])  # remove the vertexes to-merge from the set
+    s.discard(e[1])
     s = list(s)  # cast it to a list again for ease of use
 
-    # before creating the new vertex, completely remove any references to the vertexes to be merged from their neighbors
-    for i in s:
-        remove_reference(vertexes, i, e[0])
-        remove_reference(vertexes, i, e[1])
+    # remove the vertexes to merge, completely removing any references to those from their neighbors in the process
+    remove_vertex(vertexes, e[0])
+    remove_vertex(vertexes, e[1])
 
-    # only after all that preparation, finally define and add the new vertex and its edges
-    vertexes[max_index] = create_vertex(center=np.around(np.add(vertexes[e[0]]['center'], vertexes[e[1]]['center'])/2).astype(int).tolist())
+    # add edges to new vertex and neighbors
     for i in s:
         create_edge(vertexes, max_index, i)
         debugprint(vertexes[max_index])
         debugprint(vertexes[i])
 
-    # finally, we must also remove the dead (pre-merge) vertexes
-    vertexes.pop(e[0])
-    vertexes.pop(e[1])
-
+print("executed %d merges" % (len(vertexes_to_merge)))
+count(vertexes)
+print()
 
 
 # post-processing 2: remove isolated vertexes, since those connections should be too weak to mean anything significant.
-# a vertex is isolated if it's only connected to 1 (one) neighbor
+# a vertex is isolated if it's only connected to <=ISO_NEIGH neighbor (default 1, seems to make the most sense by far. editable, though)
+# we check all vertexes with one neighbor, and then add the neighbors of those vertexes to a queue, to see if they were also reduced to one neighbor
+print("post-processing 2: remove isolated vertexes (<=%d neighbor)" % (ISO_NEIGH))
 
-# TODO: improvement -> check if neighboring vertexes are isolated after the removal
-isolated_vertexes = True
-while isolated_vertexes:
-    isolated_vertexes = False
-    counter = 0
-    print("lenn", len(vertexes))
-    for i in range(0, len(vertexes)+1):
-        try:
-            if(len(vertexes[i]['neigh']) == 1):
-                other_index = vertexes[i]['neigh'][0]
-                remove_element(vertexes[other_index]['neigh'], i)
-                del vertexes[i]
-                isolated_vertexes = True
-                counter += 1
-        except:
-            continue
-    print("removed %d vertexes" % counter)
+# loop while there are vertexes with <=1 neighbor (<=ISO_NEIGH, actually)
+vertexes_to_remove = []
+vertexes_to_check = [i for i in vertexes]  # start with all indexes
+removal_counter = 0  # just for printing
+while vertexes_to_check:
+    debugprint("len = %d" % len(vertexes_to_check))
+    debugprint("ver = %s" % (vertexes_to_check))
+    while vertexes_to_check:
+        if len(vertexes[vertexes_to_check[0]]['neigh']) <= ISO_NEIGH:
+            vertexes_to_remove.append(vertexes_to_check[0])
+        vertexes_to_check.pop(0)
 
-#for e in vertexes:
-#    if(len(vertexes[e]['neigh'])) <= 1:
-        
+    print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
+    while vertexes_to_remove:
+        for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
+            vertexes_to_check.append(j)
+        remove_vertex(vertexes, vertexes_to_remove[0])
+        removal_counter += 1
+        vertexes_to_remove.pop(0)
+
+print("removed %d vertexes with <= %d neighbor" % (removal_counter, ISO_NEIGH))
+count(vertexes)
 
 
-img_graph_draw = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
+# generates pretty visual representation, just for show. remember that opencv uses BGR, not RGB
+# white (255,255,255) = original segmentation
+# red (0, 0, 255) = original vertex pixels before processing
+# blue (255,128,128) = vertex pixels after processing
+# green (0, 255, 0) = edges after processing vertexes
+
+img_visual = np.stack((img,)*3, axis=-1)  # changing from Mono to BGR (copying content to all channels)
 for vertex in vertexes:
     exa = vertexes[vertex]['center']
     for ee in vertexes[vertex]['neigh']:
         exb = vertexes[ee]['center']
         if draw_antialiased:
             rr, cc, val = line_aa(exa[0], exa[1], exb[0], exb[1])
-            img_graph_draw[rr, cc] = val.reshape(-1,1) * [0,255,0]
+            img_visual[rr, cc] = val.reshape(-1,1) * [0,255,0]
         else:
             rr, cc = line(exa[0], exa[1], exb[0], exb[1])
-            img_graph_draw[rr, cc] = [0,255,0]
-#        break
-#    break
+            img_visual[rr, cc] = [0,255,0]
 
-cv2.imwrite('_graph.png', img_graph_draw)
-cv2.imwrite('_imgv.png', imgv)
-print(lvp, lvx)
+for px in lpvertices:  # old vertexes list
+    img_visual[px[0], px[1]] = (0,0,255)  # red
 
-#for i in vertexes:
-#    print(vertexes[i])
+for i in vertexes:  # new vertexes list
+    px = vertexes[i]['center']
+    img_visual[px[0], px[1]] = (255,128,128)  # weird lightblue
 
-# print(lpvertices)
 
-# for i in vertexes:
-#    print(len(vertexes[i]['neigh']))
+cv2.imwrite('_graph.png', img_visual)
