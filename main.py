@@ -16,18 +16,18 @@ roi1 = './data/J8_S2_0_roi.jpg'
 
 
 def main():
-    test_matcher(file1, file3)
-    # test_keypoints()
-    # test_descr_center()
-    # vertice_distance(file1, file2)
+    test_matcher(file1, file2)
+    # test_keypoints(file1)
+    # test_descr_center(file3)
+    # vertice_distance(file1, file2, "sameboidist.png")
     # test_descriptor()
     
-def test_keypoints():
-    test = our_matcher(file1)
+def test_keypoints(f1):
+    test = our_matcher(f1)
     test.draw_keypoints()
     
-def test_descr_center():
-    test = our_matcher(file1)
+def test_descr_center(file):
+    test = our_matcher(file)
     test.draw_descriptor_center()
     
 def test_matcher(f1, f2):
@@ -45,9 +45,9 @@ def test_matcher(f1, f2):
     # print(len(matches))
 
     out_img = our_matcher.draw_good_matches(f1, kp1, f2, kp2, matches)
-    cv2.imwrite("diffboimatch.png", out_img)
-    # cv2.imshow("image", out_img)
-    # cv2.waitKey(0)
+    # cv2.imwrite("sameboimatch.png", out_img)
+    cv2.imshow("image", out_img)
+    cv2.waitKey(0)
     
     
 def iterate_directory():
@@ -71,10 +71,10 @@ def iterate_directory():
     print()
     print(small)
 
-def vertice_distance(f1, f2):
+def vertice_distance(f1, f2, out, raw=False):
     # DIFERENCE BETWEEN (X,Y) PIXEL VERTICES    
-    m = closest_pairs(f1, f2)
-    viz = bov_plot(size=max(max(m)), ticks=5, title=f1+"\n"+f2)
+    m = closest_pairs(f1, f2, raw)
+    viz = bov_plot(size=max(max(m)), ticks=10, title=f1+"\n"+f2)
 
     # AVERAGE DISTANCE FROM (0,0) ON MAPPED DIFF POINTS
     avg = 0
@@ -86,7 +86,8 @@ def vertice_distance(f1, f2):
     # viz.plot_data(m)
     i, o, s = ransac(m, 10, 50)
     viz.plot_ransac(i, o, s)
-    viz.show()
+    # viz.show()
+    viz.save(out)
     viz.close()
 
 

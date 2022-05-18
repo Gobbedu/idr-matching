@@ -69,7 +69,7 @@ class our_matcher:
         # reshape descriptor
         for key in raw_descriptor:
             # PRECISA CORRIGIR DESCRIPTOR, idx de vertice removido existe em 'list'
-            if len(raw_descriptor[key]['neigh']) == 3 and max(raw_descriptor[key]['neigh']) < len(raw_descriptor):
+            if len(raw_descriptor[key]['neigh']) == 3 :
                 self.keypoints.append(raw_descriptor[key]['center'])
                 # print(raw_descriptor[key])
                 cx, cy , d, a = [], [], [], []
@@ -105,8 +105,8 @@ class our_matcher:
         the descriptor vectors and a tuple of the descriptors
         """
         
-        if len(descr2) < len(descr1):
-            descr1, descr2 = descr2, descr1
+        # if len(descr2) < len(descr1):
+        #     descr1, descr2 = descr2, descr1
             
         # dist = lambda x, y: distance.euclidean(x, y)
         
@@ -171,7 +171,7 @@ class our_matcher:
         out[:rows2, cols1:cols1+cols2, :] = np.dstack([img2, img2, img2])
 
         radius = 4
-        BLUE = (255, 0, 0)
+        COLOR = (0, 255, 0)
         thickness = 1
 
         # For each pair of points we have between both images
@@ -187,36 +187,38 @@ class our_matcher:
             # print(m[1][0])
             # print(m[1][1])
             
-            # if center1 in kp1 and center2 in kp2:
-            #     print("its a match")
-                # c1, r1 = center1 
-                # c2, r2 = center2 
-            # else: 
-            #     continue
+            if center1 in kp1 and center2 in kp2:
+                # print("its a match")
+                r1, c1 = center1 
+                r2, c2 = center2 
+            else: 
+                continue
             
-            r1, c1 = center2 
-            r2, c2 = center1 
+            # r1, c1 = center2 
+            # r2, c2 = center1 
 
 
             # Draw a small circle at both co-ordinates
             # radius 4
             # colour blue
             # thickness = 1
-            cv2.circle(out, (int(c1), int(r1)), radius, BLUE, thickness)
-            cv2.circle(out, (int(c2)+cols1, int(r2)), radius, BLUE, thickness)
+            cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
+            cv2.circle(out, (int(c2)+cols1, int(r2)), radius, COLOR, thickness)
 
             # Draw a line in between the two points
             # thickness = 1
             # colour blue
-            cv2.line(out, (int(c1), int(r1)), (int(c2)+cols1, int(r2)), BLUE,
+            cv2.line(out, (int(c1), int(r1)), (int(c2)+cols1, int(r2)), COLOR,
                     thickness)
         # print(kp1)
         # print(kp2)
         return out
     
     def draw_keypoints(self):
+        # self.keypoints = img_keypoints(self.bin_img)
+        if not self.keypoints:
+            self._extract_features()
         img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
-        self.keypoints = img_keypoints(self.bin_img)
 
         rows, cols = img.shape[:2]
         out = np.zeros((rows, cols, 3))
@@ -229,7 +231,7 @@ class our_matcher:
 
         for p in self.keypoints:
             # c1, r1 = p 
-            c1, r1 = p
+            r1, c1 = p
 
             # Draw a small circle at both co-ordinates
             cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
@@ -264,21 +266,17 @@ class our_matcher:
 # EUCLIDEAN DISTANCE of descriptors distance and angle
 # distance from ALL keypoints not precise, limit to closer centers (TODO)
 
-
-def closest_node(node, nodes):
-    nodes = np.asarray(nodes)
-    deltas = nodes - node
-    dist_2 = np.einsum('ij,ij->i', deltas, deltas)
-    return np.argmin(dist_2)
-
-def closest_pairs(img1, img2):
+def closest_pairs(img1, img2, raw=False):
     """ 
     returns a list of vertices pairs, [(v1), (v2)]
     where v1 belongs to img1 and v2 img2, and v2 is the closest vertice to v1
     """
-    
-    keypoints1 = img_keypoints(img1)
-    keypoints2 = img_keypoints(img2)
+    if raw:
+        keypoints1 = img_keypoints(img1)
+        keypoints2 = img_keypoints(img2)
+    else:
+        keypoints1, desc1 = our_matcher(img1)._extract_features()
+        keypoints2, desc2 = our_matcher(img2)._extract_features()
     
     pairs = []
     for k1 in keypoints1:
@@ -292,10 +290,6 @@ def closest_pairs(img1, img2):
         pairs.append(pt)        
         
     # return avg
-    # # da na mesma q o codigo acima  
-    # for k1 in keypoints1:        
-    #     k2 = keypoints2[closest_node(k1, keypoints2)]
-    #     pairs.append([k1, k2])
         
     # map poits of v2 such that v1 is the base 0
     mapped = []
