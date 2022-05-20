@@ -7,6 +7,11 @@ from math import inf, sqrt
 
 import scipy
 from sklearn.metrics import euclidean_distances
+
+from skimage.transform import warp, AffineTransform
+from skimage.measure import ransac
+from skimage.feature import (corner_harris, corner_subpix, corner_peaks,
+                             plot_matches)
 from plot import bov_plot
 from keypoints import img_keypoints
 from descriptor import our_descriptor
@@ -14,6 +19,7 @@ import numpy as np
 import cv2
 from tt import gen_graph
 from scipy.spatial import distance
+import matplotlib.pyplot as plt
 
 
 class our_matcher:
@@ -49,27 +55,10 @@ class our_matcher:
         # self.keypoints = img_keypoints(self.bin_img)
         
         raw_descriptor = gen_graph(self.bin_img)
-        
-        # VERIFICA SIMILARIDADE
-        # P = 0
-        # NP = 0
-        # for key in raw_descriptor:
-        #     if raw_descriptor[key]['center'] not in self.keypoints:
-        #         # print("nao pertence")
-        #         NP += 1
-        #     else:
-        #         # print("PERTENCE")
-        #         P += 1
-                
-        # print("nao pertence:", NP)
-        # print("pertence: ", P)
-        # print("size = descr:", P + NP == len(raw_descriptor))
-        # return [], []
-        
-        # reshape descriptor
+        print(f"raw[0]: {raw_descriptor[list(raw_descriptor)[0]]}")
+        # RESHAPE DESCRIPTOR
         for key in raw_descriptor:
-            # PRECISA CORRIGIR DESCRIPTOR, idx de vertice removido existe em 'list'
-            if len(raw_descriptor[key]['neigh']) == 3 :
+            if len(raw_descriptor[key]['neigh']) == 3:
                 self.keypoints.append(raw_descriptor[key]['center'])
                 # print(raw_descriptor[key])
                 cx, cy , d, a = [], [], [], []
@@ -78,26 +67,88 @@ class our_matcher:
                 cy.append(raw_descriptor[key]['center'][1])
                 # print("pertence? ", cx + cy in self.keypoints)
                 if cx + cy in self.keypoints:
-                    for neighkey in raw_descriptor[key]['neigh']:
-                        # print("neigh c:", raw_descriptor[neighkey]['center'])
-                        cx.append(raw_descriptor[neighkey]['center'][0])
-                        cy.append(raw_descriptor[neighkey]['center'][1])
+                    # for neighkey in raw_descriptor[key]['neigh']:
+                    #     # print("neigh c:", raw_descriptor[neighkey]['center'])
+                    #     cx.append(raw_descriptor[neighkey]['center'][0])
+                    #     cy.append(raw_descriptor[neighkey]['center'][1])
                     for i in range(3):
                         # print("this a:", raw_descriptor[key]['ang'])
                         # print("this d:", raw_descriptor[key]['dist'])
                         d.append(raw_descriptor[key]['dist'][i])
                         a.append(raw_descriptor[key]['ang'][i])
                         
-                    # print(cx)
-                    # print(cy)
-                    # print(d)
-                    # print(a)
                     V = cx + cy + d + a
                     self.descriptor.append(V)
         
-        # print(len(self.descriptor))            
-
         return self.keypoints, self.descriptor
+
+
+    def _ransac(matches, img1, img2):
+        """Testing scikit ransac"""
+        # find correspondences using simple weighted sum of squared differences
+        # coords_orig_subpix = [ [V[0], V[4]] for V in descr1 ]
+        # coords_orig_subpix = np.array(coords_orig_subpix)
+        
+        # matches = our_matcher._match_features(descr1, descr2)
+        img_orig = np.asarray(cv2.imread(img1))
+        img_comp = np.asarray(cv2.imread(img2))
+        
+        src = []
+        dst = []
+        for dist, coord in matches:
+            src.append(coord[0])
+            dst.append(coord[1])
+        # print(src, dst)
+        src = np.array(src)
+        dst = np.array(dst)
+
+
+        # estimate affine transform model using all coordinates
+        model = AffineTransform()
+        model.estimate(src, dst)
+
+        # robustly estimate affine transform model with RANSAC
+        model_robust, inliers = ransac((src, dst), AffineTransform, min_samples=3,
+                                    residual_threshold=2, max_trials=100)
+        outliers = inliers == False
+
+
+        # compare "true" and estimated transform parameters
+        # print("Ground truth:")
+        # print(f'Scale: ({tform.scale[1]:.4f}, {tform.scale[0]:.4f}), '
+        #     f'Translation: ({tform.translation[1]:.4f}, '
+        #     f'{tform.translation[0]:.4f}), '
+        #     f'Rotation: {-tform.rotation:.4f}')
+        print("Affine transform:")
+        print(f'Scale: ({model.scale[0]:.4f}, {model.scale[1]:.4f}), '
+            f'Translation: ({model.translation[0]:.4f}, '
+            f'{model.translation[1]:.4f}), '
+            f'Rotation: {model.rotation:.4f}')
+        print("RANSAC:")
+        print(f'Scale: ({model_robust.scale[0]:.4f}, {model_robust.scale[1]:.4f}), '
+            f'Translation: ({model_robust.translation[0]:.4f}, '
+            f'{model_robust.translation[1]:.4f}), '
+            f'Rotation: {model_robust.rotation:.4f}')
+
+        # visualize correspondence
+        fig, ax = plt.subplots(nrows=2, ncols=1)
+
+        plt.gray()
+
+        inlier_idxs = np.nonzero(inliers)[0]
+        plot_matches(ax[0], img_orig, img_comp, src, dst,
+                    np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
+        ax[0].axis('off')
+        ax[0].set_title('Correct correspondences')
+
+        outlier_idxs = np.nonzero(outliers)[0]
+        plot_matches(ax[1], img_orig, img_comp, src, dst,
+                    np.column_stack((outlier_idxs, outlier_idxs)), matches_color='r')
+        ax[1].axis('off')
+        ax[1].set_title('Faulty correspondences')
+
+        plt.show()
+    
 
     def _match_features(descr1, descr2):
         """
@@ -127,7 +178,8 @@ class our_matcher:
                     
             if smol: # not empty
                 # matches.append([mini, (descr1[d1]['center'], descr2[smol]['center'])])
-                matches.append([mini, (d1, smol)])
+                matches.append([mini, ([d1[0], d1[1]], [smol[0], smol[1]])])
+                # matches.append([mini, (d1, smol)])
                 
                 
         matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean dist  

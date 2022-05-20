@@ -16,11 +16,24 @@ roi1 = './data/J8_S2_0_roi.jpg'
 
 
 def main():
-    test_matcher(file1, file2)
+    test_ransac(file1, file3)
+    # test_matcher(file1, file2)
     # test_keypoints(file1)
     # test_descr_center(file3)
     # vertice_distance(file1, file2, "sameboidist.png")
     # test_descriptor()
+    
+def test_ransac(f1, f2):
+    t1 = our_matcher(f1)
+    t2 = our_matcher(f2)
+    
+    k1, d1 = t1._extract_features()
+    k2, d2 = t2._extract_features()
+    matches = our_matcher._match_features(d1, d2)
+    # print(f"MATCHES[1]: {matches[0][1]}")
+    # our_matcher._ransac_vertices(d1, d2, t1.bin_img, t2.bin_img)
+    our_matcher._ransac(matches, t1.bin_img, t2.bin_img)
+
     
 def test_keypoints(f1):
     test = our_matcher(f1)
@@ -86,8 +99,8 @@ def vertice_distance(f1, f2, out, raw=False):
     # viz.plot_data(m)
     i, o, s = ransac(m, 10, 50)
     viz.plot_ransac(i, o, s)
-    # viz.show()
-    viz.save(out)
+    viz.show()
+    # viz.save(out)
     viz.close()
 
 

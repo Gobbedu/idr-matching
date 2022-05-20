@@ -19,7 +19,7 @@ def ransac(data, Delta, N):
     # while itr < N and Total < len(data)/2:
     while itr < N:
         pts = subset_of(data, 2)
-    
+
         p1 = pts[0]
         p2 = pts[1]
 
