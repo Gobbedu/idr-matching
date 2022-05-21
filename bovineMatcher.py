@@ -6,12 +6,13 @@
 from math import inf, sqrt
 
 import scipy
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics.pairwise import euclidean_distances
 
-from skimage.transform import warp, AffineTransform
+import skimage.transform as skit
+
 from skimage.measure import ransac
-from skimage.feature import (corner_harris, corner_subpix, corner_peaks,
-                             plot_matches)
+from skimage.feature import plot_matches
+
 from plot import bov_plot
 from keypoints import img_keypoints
 from descriptor import our_descriptor
@@ -39,13 +40,14 @@ class our_matcher:
         self.descriptor = list()
         self.keypoints = list()
         self.matches = list()
+  
     
     def _extract_features(self):
         """
             return self.keypoints, self.descriptor\n
             Calls extraction functions and converts to usable
-            descriptor vector of 14 dimentions, list of lists
-            e.g: V = [c0x, c1x, c2x, c3x, c0y, c1y, c2y, c3y, d1, d2, d3, a1, a2, a3]\n
+            descriptor vector of 8 dimentions, list of lists
+            e.g: V = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
             where   
             c = pixel coord of vertices,
             d = distance for neighbour vertices,
@@ -83,75 +85,9 @@ class our_matcher:
         return self.keypoints, self.descriptor
 
 
-    def _ransac(matches, img1, img2):
-        """Testing scikit ransac"""
-        # find correspondences using simple weighted sum of squared differences
-        # coords_orig_subpix = [ [V[0], V[4]] for V in descr1 ]
-        # coords_orig_subpix = np.array(coords_orig_subpix)
-        
-        # matches = our_matcher._match_features(descr1, descr2)
-        img_orig = np.asarray(cv2.imread(img1))
-        img_comp = np.asarray(cv2.imread(img2))
-        
-        src = []
-        dst = []
-        for dist, coord in matches:
-            src.append(coord[0])
-            dst.append(coord[1])
-        # print(src, dst)
-        src = np.array(src)
-        dst = np.array(dst)
-
-
-        # estimate affine transform model using all coordinates
-        model = AffineTransform()
-        model.estimate(src, dst)
-
-        # robustly estimate affine transform model with RANSAC
-        model_robust, inliers = ransac((src, dst), AffineTransform, min_samples=3,
-                                    residual_threshold=2, max_trials=100)
-        outliers = inliers == False
-
-
-        # compare "true" and estimated transform parameters
-        # print("Ground truth:")
-        # print(f'Scale: ({tform.scale[1]:.4f}, {tform.scale[0]:.4f}), '
-        #     f'Translation: ({tform.translation[1]:.4f}, '
-        #     f'{tform.translation[0]:.4f}), '
-        #     f'Rotation: {-tform.rotation:.4f}')
-        print("Affine transform:")
-        print(f'Scale: ({model.scale[0]:.4f}, {model.scale[1]:.4f}), '
-            f'Translation: ({model.translation[0]:.4f}, '
-            f'{model.translation[1]:.4f}), '
-            f'Rotation: {model.rotation:.4f}')
-        print("RANSAC:")
-        print(f'Scale: ({model_robust.scale[0]:.4f}, {model_robust.scale[1]:.4f}), '
-            f'Translation: ({model_robust.translation[0]:.4f}, '
-            f'{model_robust.translation[1]:.4f}), '
-            f'Rotation: {model_robust.rotation:.4f}')
-
-        # visualize correspondence
-        fig, ax = plt.subplots(nrows=2, ncols=1)
-
-        plt.gray()
-
-        inlier_idxs = np.nonzero(inliers)[0]
-        plot_matches(ax[0], img_orig, img_comp, src, dst,
-                    np.column_stack((inlier_idxs, inlier_idxs)), matches_color='b')
-        ax[0].axis('off')
-        ax[0].set_title('Correct correspondences')
-
-        outlier_idxs = np.nonzero(outliers)[0]
-        plot_matches(ax[1], img_orig, img_comp, src, dst,
-                    np.column_stack((outlier_idxs, outlier_idxs)), matches_color='r')
-        ax[1].axis('off')
-        ax[1].set_title('Faulty correspondences')
-
-        plt.show()
-    
-
     def _match_features(descr1, descr2):
         """
+        Return [[kp1, kp2]]
         Returns a list of sorted matches composed of the minimum Euclidean distance of 
         the descriptor vectors and a tuple of the descriptors
         """
@@ -166,28 +102,80 @@ class our_matcher:
             mini = inf
             smol = []
             for d2 in descr2:
-                # DMatch Euclidean
-                sum = 0
-                for i in range(len(d1)):
-                    # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
-                    sum += (d1[i] - d2[i])*(d1[i] - d2[i])
-                euclidean = sqrt(sum)
+                # # DMatch Euclidean
+                # sum = 0
+                # for i in range(len(d1)):
+                #     # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
+                #     sum += (d1[i] - d2[i])*(d1[i] - d2[i])
+                # euclidean = sqrt(sum)
+                
+                euclidean = euclidean_distances([d1], [d2])
+
                 if euclidean < mini:
                     mini = euclidean
                     smol = d2
                     
             if smol: # not empty
-                # matches.append([mini, (descr1[d1]['center'], descr2[smol]['center'])])
-                matches.append([mini, ([d1[0], d1[1]], [smol[0], smol[1]])])
-                # matches.append([mini, (d1, smol)])
+                # [vertice1, vertice2]
+                matches.append([[d1[0], d1[1]], [smol[0], smol[1]]])
                 
-                
-        matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean dist  
+        # matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean distance  
         return matches
 
-        # sorted_data = sorted(data_points, key=lambda x: x[1])
 
+    def _ransac(matches):
+        """returns [inliers], [outliers], [kp_src], [kp_dst]"""
+       
+        # split from matches source and compared 
+        src = []
+        dst = []
+        for coord in matches:
+            src.append(coord[0])
+            dst.append(coord[1])
+        src = np.array(src)
+        dst = np.array(dst)
         
+        # A DECIDIR residual_threshol, max_trials, outro Transform
+
+        # robustly estimate transform model with RANSAC
+        model_robust, inliers = ransac((src, dst), skit.SimilarityTransform, min_samples=3,
+                                    residual_threshold=5, max_trials=500)
+        
+        print("print model input:", (src, dst))
+        outliers = inliers == False
+
+        return inliers, outliers, src, dst
+
+
+    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp):
+        img_orig = np.asarray(cv2.imread(file_img_orig))
+        img_comp = np.asarray(cv2.imread(file_img_comp))
+        
+        inlier_idxs = np.nonzero(inliers)[0]
+        outlier_idxs = np.nonzero(outliers)[0]
+
+        # visualize correspondence
+        fig, ax = plt.subplots(nrows=2, ncols=1)
+
+        # plt.gray()
+
+        # inlier_idxs = np.nonzero(inliers)[0]
+        plot_matches(ax[0], img_orig, img_comp, src, dst,
+                    np.column_stack((inlier_idxs, inlier_idxs)), matches_color='lime')
+        ax[0].axis('off')
+        ax[0].set_title(f'Correct correspondences -> {sum(inliers)}')
+
+        # outlier_idxs = np.nonzero(outliers)[0]
+        plot_matches(ax[1], img_orig, img_comp, src, dst,
+                    np.column_stack((outlier_idxs, outlier_idxs)), matches_color='r')
+        ax[1].axis('off')
+        ax[1].set_title(f'Faulty correspondences -> {sum(outliers)}')
+        fig.suptitle(f"{file_img_orig.split('/')[-1]}  X  {file_img_comp.split('/')[-1]}")
+
+        plt.show()
+    
+        
+    # -- to remove --
     def draw_good_matches(img_file1, kp1, img_file2, kp2, matches):
         """Visualizes a list of good matches
         
@@ -230,8 +218,8 @@ class our_matcher:
         # draw circles, then connect a line between them
         for m in matches:
             # Get the matching keypoints for each of the images
-            center1 = [m[1][0][0], m[1][0][4]]
-            center2 = [m[1][1][0], m[1][1][4]]
+            center1 = [m[0][0], m[0][1]]
+            center2 = [m[1][0], m[1][1]]
             
             # print(center1)
             # print(center2)
@@ -266,6 +254,7 @@ class our_matcher:
         # print(kp2)
         return out
     
+    
     def draw_keypoints(self):
         # self.keypoints = img_keypoints(self.bin_img)
         if not self.keypoints:
@@ -290,6 +279,7 @@ class our_matcher:
         
         cv2.imshow("image",out)
         cv2.waitKey(0)
+       
         
     def draw_descriptor_center(self):
         img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
@@ -317,7 +307,6 @@ class our_matcher:
     
 # EUCLIDEAN DISTANCE of descriptors distance and angle
 # distance from ALL keypoints not precise, limit to closer centers (TODO)
-
 def closest_pairs(img1, img2, raw=False):
     """ 
     returns a list of vertices pairs, [(v1), (v2)]
@@ -353,34 +342,4 @@ def closest_pairs(img1, img2, raw=False):
         mapped.append(pt)
 
     return mapped        
-        
-        
-        # diffDist_dist = Infinity
-        # diffAng_dist = Infinity
-        # for key2 in des2:
-        #     # compare two keypoint's distances
-        #     diff_dist = (des1[key1]['dist'][0] - des2[key2]['dist'][0])
-        #     dist_2 = diff_dist*diff_dist
-        #     if(dist_2 < diffDist_dist):
-        #         diffDist_dist = dist_2    
-        #     # compare two keypoint's angle
-        #     diff_ang = (des1[key1]['ang'][0] - des2[key2]['ang'][0])
-        #     ang_2 = diff_ang*diff_ang
-        #     if(ang_2 < diffAng_dist):
-        #         diffAng_dist = ang_2    
-            
-        # closest_v.append(diffDist_dist) 
-        # smallest_Ang_dist.append(diffAng_dist)
-        
-    # ed_Distance = 0
-    # ed_Angle = 0
-    # for ed_dist, ed_ang in closest_v, smallest_Ang_dist:         
-    #     ed_Distance += ed_dist
-    #     ed_Angle += ed_ang
-    # ed_Distance = sqrt(ed_Distance)
-    # ed_Angle = sqrt(ed_ang)
-
-    # print("distance:", ed_Distance)
-    # print("angle:", ed_Angle)
-
-# our_matcher('./data/J8_S2_0.png')._extract_features()
+ 

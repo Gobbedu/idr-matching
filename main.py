@@ -10,20 +10,46 @@ from bovineMatcher import *
 file1 = './data/J8_S2_0.png'
 file2 = './data/J8_S2_1.png'
 file3 = './data/S1_I39_1yb.png'
+file2_rot180 = './data/J8_S2_1_rot.png'
+file2_rot90 = './data/J8_S2_1_rot90.png'
 
 roi1 = './data/J8_S2_0_roi.jpg'
 # roi2 = './data/J8_S2_1_roi.jpg'
-
+file4 = 'data/Jersey_S1-b/J11/J11_S1_13.png'
 
 def main():
-    test_ransac(file1, file3)
+    # find_most_similar(file4, 'data/subset')    
+    ransac_matches(file1, file3)
+    ransac_matches(file1, file2)
     # test_matcher(file1, file2)
+    # ransac_matches(file1, file2_rot90)
     # test_keypoints(file1)
     # test_descr_center(file3)
     # vertice_distance(file1, file2, "sameboidist.png")
     # test_descriptor()
     
-def test_ransac(f1, f2):
+def find_most_similar(src_file, dir_path):
+    files = iterate_directory(dir_path)
+    src = our_matcher(src_file)
+    ks, ds = src._extract_features()
+    
+    max_inlier = 0
+    fit = tuple()
+    
+    for compare in files:
+        comp = our_matcher(compare)
+        kc, dc = comp._extract_features()
+        
+        matches = our_matcher._match_features(ds, dc)
+        inliers, outliers, src, dst = our_matcher._ransac(matches)
+        summ = sum(inliers)
+        if summ > max_inlier:
+            fit = (inliers, outliers, src, dst, comp)
+            max_inlier = summ
+    
+    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src.bin_img, fit[4].bin_img)
+    
+def ransac_matches(f1, f2):
     t1 = our_matcher(f1)
     t2 = our_matcher(f2)
     
@@ -32,7 +58,9 @@ def test_ransac(f1, f2):
     matches = our_matcher._match_features(d1, d2)
     # print(f"MATCHES[1]: {matches[0][1]}")
     # our_matcher._ransac_vertices(d1, d2, t1.bin_img, t2.bin_img)
-    our_matcher._ransac(matches, t1.bin_img, t2.bin_img)
+    inl, out, src, dst = our_matcher._ransac(matches)
+    our_matcher.draw_ransac_matches(inl, out, src, dst, f1, f2)
+
 
     
 def test_keypoints(f1):
@@ -63,8 +91,8 @@ def test_matcher(f1, f2):
     cv2.waitKey(0)
     
     
-def iterate_directory():
-    dir = 'data/Jersey_S1-b'
+def iterate_directory(dir):
+    # dir = 'data/Jersey_S1-b'
     files = []
     for root, dirs, filenames in os.walk(dir):
         for file in filenames:
@@ -72,17 +100,19 @@ def iterate_directory():
             if "png" in f:
                 files.append(f)
 
-    src = files[0]
-    files.remove(src)
-    small = ("src", inf, "file")
+    # src = files[0]
+    # files.remove(src)
+    # small = ("src", inf, "file")
     
-    for file in files:
-        x = closest_pairs(src, file)
-        if x < small[1]:
-            small = (src, x, file)
+    # for file in files:
+    #     x = closest_pairs(src, file)
+    #     if x < small[1]:
+    #         small = (src, x, file)
 
-    print()
-    print(small)
+    # for file in files:
+    #     print(file)
+    # print(len(files))
+    return files
 
 def vertice_distance(f1, f2, out, raw=False):
     # DIFERENCE BETWEEN (X,Y) PIXEL VERTICES    
