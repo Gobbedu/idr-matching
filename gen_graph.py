@@ -11,7 +11,7 @@ from skimage.draw import line, line_aa
 
 import bwmorph
 
-IMG_PATH = './data/2-seg/_j-smol/J8/J8_S2_0.png'
+IMG_PATH = './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 15.0
 ISO_NEIGH = 1
@@ -29,14 +29,31 @@ def calc_dist(vertexes, i1, i2):
 def calc_angle(vertexes, i1, i2):
     return math.degrees(math.atan2(vertexes[i1]['center'][0]-vertexes[i2]['center'][0], vertexes[i1]['center'][1]-vertexes[i2]['center'][1]))
 
+
+def compare_logic(vertexes, i, key, value):
+    pos = 0
+    while pos < len(vertexes[i][key]):
+        if value < vertexes[i][key][pos]:  # < sign = smallest to biggest
+            break
+        pos += 1
+    return pos
+    
+def neighbor_sorting_logic(vertexes, i1, i2, key='ang'):
+    pos1 = compare_logic(vertexes, i1, key, calc_angle(vertexes, i1, i2))
+    pos2 = compare_logic(vertexes, i2, key, calc_angle(vertexes, i2, i1))
+    return pos1, pos2
+
 def create_edge(vertexes, i1, i2):  # lvx, lvp
-    vertexes[i1]['neigh'].append(i2)
-    vertexes[i2]['neigh'].append(i1)
-    vertexes[i1]['dist'].append(calc_dist(vertexes, i1, i2))
-    vertexes[i2]['dist'].append(calc_dist(vertexes, i2, i1))
-    vertexes[i1]['ang'].append(calc_angle(vertexes, i1, i2))
-    vertexes[i2]['ang'].append(calc_angle(vertexes, i2, i1))
+    pos1, pos2 = neighbor_sorting_logic(vertexes, i1, i2)
+    # pos1 = pos2 = 0
+    vertexes[i1]['neigh'].insert(pos1, i2)
+    vertexes[i2]['neigh'].insert(pos2, i1)
+    vertexes[i1]['dist'].insert(pos1, calc_dist(vertexes, i1, i2))
+    vertexes[i2]['dist'].insert(pos2, calc_dist(vertexes, i2, i1))
+    vertexes[i1]['ang'].insert(pos1, calc_angle(vertexes, i1, i2))
+    vertexes[i2]['ang'].insert(pos2, calc_angle(vertexes, i2, i1))
     return
+
 
 def create_vertex(center=None, neigh=None, dist=None, ang=None):  # improvement by Gobbo
     params = locals()
@@ -63,12 +80,22 @@ def remove_vertex(vertexes, i):  # index of vertex to remove. remove all referen
     return
 
 
+def quick_stats(vertexes, key):
+    flattened = [e for s in [vertexes[i][key] for i in vertexes] for e in s]  # just believe, it works
+    return [np.average(flattened), np.median(flattened), np.min(flattened), np.max(flattened)]
+
+
 def count(vertexes):
     n_edges = 0
     for v in sorted(vertexes):
         n_edges += len(vertexes[v])
     print("vertexes: %d  |  edges: %d" % (len(vertexes), n_edges))
     return
+
+
+def print_vertexes(vertexes):
+    for i in vertexes:
+        print("i: %d | center: %s | neigh: %s | dist: %s | ang: %s" % (i, vertexes[i]['center'], vertexes[i]['neigh'], [round(d,2) for d in vertexes[i]['dist']], [round(a,2) for a in vertexes[i]['ang']]))
 
 
 def gen_graph(img_path):
@@ -208,6 +235,8 @@ def gen_graph(img_path):
             for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
                 vertexes_to_check.append(j)
             remove_vertex(vertexes, vertexes_to_remove[0])
+            if vertexes_to_remove[0] in vertexes_to_check:  # after removing the vertex, we must make sure it's no longer referenced in our to-check list
+                vertexes_to_check.remove(vertexes_to_remove[0])
             removal_counter += 1
             vertexes_to_remove.pop(0)
 
@@ -245,4 +274,7 @@ def gen_graph(img_path):
     return vertexes  # arbitrary value as of now
 
 
-gen_graph(IMG_PATH)
+vertexes = gen_graph(IMG_PATH)
+print_vertexes(vertexes)
+qs = quick_stats(vertexes, 'dist')
+print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))
