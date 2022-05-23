@@ -156,12 +156,7 @@ def gen_graph(img_path):
                     create_edge(vertexes, lvx, lvp)
 
     count(vertexes)
-    
-    print_vertex(vertexes, 243)
-    print_vertex(vertexes, 253)
-    print_vertex(vertexes, 226)
-    print_vertex(vertexes, 256)
-    print_vertex(vertexes, 244)
+
 
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
