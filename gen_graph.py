@@ -11,7 +11,8 @@ from skimage.draw import line, line_aa
 
 import bwmorph
 
-IMG_PATH = './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
+IMG_PATH = 'data/2-seg/Jersey_S1-b/J99/J99_S1_1.png'
+# './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 15.0
 ISO_NEIGH = 1
@@ -45,7 +46,7 @@ def neighbor_sorting_logic(vertexes, i1, i2, key='ang'):
 
 def create_edge(vertexes, i1, i2):  # lvx, lvp
     pos1, pos2 = neighbor_sorting_logic(vertexes, i1, i2)
-    # pos1 = pos2 = 0
+    # pos1 = pos2 = 0  # uncomment to not use neighbor sorting
     vertexes[i1]['neigh'].insert(pos1, i2)
     vertexes[i2]['neigh'].insert(pos2, i1)
     vertexes[i1]['dist'].insert(pos1, calc_dist(vertexes, i1, i2))
@@ -93,9 +94,13 @@ def count(vertexes):
     return
 
 
+
+def print_vertex(vertexes, i):
+    print("i: %d | center: %s | neigh: %s | dist: %s | ang: %s" % (i, vertexes[i]['center'], vertexes[i]['neigh'], [round(d,2) for d in vertexes[i]['dist']], [round(a,2) for a in vertexes[i]['ang']]))
+
 def print_vertexes(vertexes):
     for i in vertexes:
-        print("i: %d | center: %s | neigh: %s | dist: %s | ang: %s" % (i, vertexes[i]['center'], vertexes[i]['neigh'], [round(d,2) for d in vertexes[i]['dist']], [round(a,2) for a in vertexes[i]['ang']]))
+        print_vertex(vertexes, i)
 
 
 def gen_graph(img_path):
@@ -126,7 +131,8 @@ def gen_graph(img_path):
 
         if img_neighbors[px[0], px[1]] > 2:  # is a vertex pixel
             lvp = imgv[px[0], px[1]]  # initializing graph
-            vertexes[lvp] = create_vertex(center=px)
+            if lvp not in vertexes:
+                vertexes[lvp] = create_vertex(center=px)
         else:
             lvp = img_graph[px[0], px[1]]
 
@@ -150,8 +156,12 @@ def gen_graph(img_path):
                     create_edge(vertexes, lvx, lvp)
 
     count(vertexes)
-
-
+    
+    print_vertex(vertexes, 243)
+    print_vertex(vertexes, 253)
+    print_vertex(vertexes, 226)
+    print_vertex(vertexes, 256)
+    print_vertex(vertexes, 244)
 
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
