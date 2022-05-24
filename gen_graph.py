@@ -104,8 +104,8 @@ def print_vertexes(vertexes):
 
 
 def gen_graph(img_path):
-    img = cv2.imread(IMG_PATH, 0)
-    print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
+    img = cv2.imread(img_path, 0)
+    print("shape: %s  |  max: %d  |  min: %d | path: %s" % (img.shape, img.max(), img.min(), img_path))
 
     img_neighbors = bwmorph._neighbors_conv(img==255)
 
@@ -113,7 +113,7 @@ def gen_graph(img_path):
     lpvertices = lpvertices.tolist()
     img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
     imgv, nvertices = scipy.ndimage.label(img_neighbors>2)
-    print('vertex pixels: %d' % (len(lpvertices)))
+    # print('vertex pixels: %d' % (len(lpvertices)))
 
     # imgv - label of vertices
     # img_neighbors - connectivity of graph pixels
@@ -155,14 +155,14 @@ def gen_graph(img_path):
                 elif lvx != lvp:  # we don't merge vertexes here to avoid bugs with retroactively updating, but there must be a better way
                     create_edge(vertexes, lvx, lvp)
 
-    count(vertexes)
+    # count(vertexes)
 
 
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
     # we do this step before the next one (removing isolated vertexes), as vertexes that are too close together would not be considered to be isolated
-    print()
-    print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
+    # print()
+    # print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 
     # begin by generating a list of vertexes to merge
     vertexes_to_merge = set()
@@ -175,7 +175,7 @@ def gen_graph(img_path):
                 vertexes_to_merge.add(frozenset([index1, index2]))  # adds indexes of vertexes to update. by using a set, we avoid dealing with duplicates like [42,69] and [69,42]
 
     vertexes_to_merge = [list(i) for i in list(vertexes_to_merge)]  # cast to list for better usability
-    print("detected %d merges to execute: %s" % (len(vertexes_to_merge), vertexes_to_merge))
+    # print("detected %d merges to execute: %s" % (len(vertexes_to_merge), vertexes_to_merge))
 
     # after generating list of vertexes to merge, perform the corresponding updates on their neighbors and the merges
     ins_index = len(vertexes)  # insertion index. the new (merged) vertexes will be added at the end
@@ -199,8 +199,8 @@ def gen_graph(img_path):
         # add edges to new vertex and neighbors
         for i in s:
             create_edge(vertexes, ins_index, i)
-            debugprint(vertexes[ins_index])
-            debugprint(vertexes[i])
+            # debugprint(vertexes[ins_index])
+            # debugprint(vertexes[i])
 
         merge_counter += 1
         vertexes_to_merge.pop(0)  # removal
@@ -211,30 +211,30 @@ def gen_graph(img_path):
                 if i[j] == e[0] or i[j] == e[1]:
                     i[j] = ins_index
 
-    print("executed %d merges" % (merge_counter))
-    count(vertexes)
-    print()
+    # print("executed %d merges" % (merge_counter))
+    # count(vertexes)
+    # print()
 
 
     # post-processing 2: remove isolated vertexes, since those connections should be too weak to mean anything significant.
     # a vertex is isolated if it's only connected to <=ISO_NEIGH neighbor (default 1, seems to make the most sense by far. editable, though)
     # we check all vertexes with one neighbor, and then add the neighbors of those vertexes to a queue, to see if they were also reduced to one neighbor
-    print("post-processing 2: remove isolated vertexes (<=%d neighbor)" % (ISO_NEIGH))
+    # print("post-processing 2: remove isolated vertexes (<=%d neighbor)" % (ISO_NEIGH))
 
     # loop while there are vertexes with <=1 neighbor (<=ISO_NEIGH, actually)
     vertexes_to_remove = []
     vertexes_to_check = [i for i in vertexes]  # start with all indexes
     removal_counter = 0  # just for printing
     while vertexes_to_check:
-        debugprint("len = %d" % len(vertexes_to_check))
-        debugprint("ver = %s" % (vertexes_to_check))
+        # debugprint("len = %d" % len(vertexes_to_check))
+        # debugprint("ver = %s" % (vertexes_to_check))
         while vertexes_to_check:
             if len(vertexes[vertexes_to_check[0]]['neigh']) <= ISO_NEIGH:
                 vertexes_to_remove.append(vertexes_to_check[0])
             vertexes_to_check.pop(0)
 
         vertexes_to_remove = list(set(vertexes_to_remove))  # removes duplicates lol
-        print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
+        # print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
 
         while vertexes_to_remove:
             for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
@@ -245,8 +245,8 @@ def gen_graph(img_path):
             removal_counter += 1
             vertexes_to_remove.pop(0)
 
-    print("removed %d vertexes with <= %d neighbor" % (removal_counter, ISO_NEIGH))
-    count(vertexes)
+    # print("removed %d vertexes with <= %d neighbor" % (removal_counter, ISO_NEIGH))
+    # count(vertexes)
 
 
     # generates pretty visual representation, just for show. remember that opencv uses BGR, not RGB
@@ -275,11 +275,11 @@ def gen_graph(img_path):
         img_visual[px[0], px[1]] = (255,128,128)  # weird lightblue
 
 
-    cv2.imwrite('_graph.png', img_visual)
+    # cv2.imwrite('_graph.png', img_visual)
     return vertexes  # arbitrary value as of now
 
 
-vertexes = gen_graph(IMG_PATH)
-print_vertexes(vertexes)
-qs = quick_stats(vertexes, 'dist')
-print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))
+# vertexes = gen_graph(IMG_PATH)
+# print_vertexes(vertexes)
+# qs = quick_stats(vertexes, 'dist')
+# print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))

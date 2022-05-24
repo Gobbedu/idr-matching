@@ -5,6 +5,7 @@ from bovineMatcher import *
 from plot import bov_plot
 import methods as use
 import os
+import sys
 import glob
 import random
 
@@ -24,8 +25,6 @@ dir2 = 'data/subset'
 
 def main():
     avaliar_ransac(dir_path=dir1, num_indiv=10)
-    # k, d = our_matcher(file1).extract_features()
-    # print(d[0])
     # find_most_similar(file4, 'data/Jersey_S1-b')    
     # find_most_similar(file4, 'data/subset')
     # ransac_matches(file1, file3)
@@ -42,30 +41,12 @@ def avaliar_ransac(dir_path, num_indiv):
     files = glob.glob(dir_path+'/*/*.png')
 
     # erros no gen_graph
-    files.remove('data/Jersey_S1-b/J351/J351_S1_10.png')
-    files.remove('data/Jersey_S1-b/J351/J351_S1_8.png')
-    files.remove('data/Jersey_S1-b/J98/J98_S1_12.png')
-    files.remove('data/Jersey_S1-b/J98/J98_S1_15.png')
-    files.remove('data/Jersey_S1-b/J102/J102_S1_8.png')
-    files.remove('data/Jersey_S1-b/J106/J106_S1_2.png')
     files.remove('data/Jersey_S1-b/J106/J106_S1_4.png')
-    files.remove('data/Jersey_S1-b/J106/J106_S1_1.png')
     files.remove('data/Jersey_S1-b/J106/J106_S1_7.png')
     files.remove('data/Jersey_S1-b/J102/J102_S1_13.png')
     files.remove('data/Jersey_S1-b/J102/J102_S1_1.png')
-    files.remove('data/Jersey_S1-b/J102/J102_S1_4.png')
-    files.remove('data/Jersey_S1-b/J99/J99_S1_1.png')
-    files.remove('data/Jersey_S1-b/J99/J99_S1_9.png')
-    files.remove('data/Jersey_S1-b/J101/J101_S1_0.png')
-    files.remove('data/Jersey_S1-b/J101/J101_S1_1.png')
-    files.remove('data/Jersey_S1-b/J70/J70_S1_1.png')
     files.remove('data/Jersey_S1-b/J70/J70_S1_12.png')
-    files.remove('data/Jersey_S1-b/J70/J70_S1_4.png')
-    files.remove('data/Jersey_S1-b/J70/J70_S1_8.png')
     files.remove('data/Jersey_S1-b/J91/J91_S1_6.png')
-    files.remove('data/Jersey_S1-b/J92/J92_S1_11.png')
-    files.remove('data/Jersey_S1-b/J92/J92_S1_12.png')
-
     # random list of diferent bovines to match
     find = []
     while len(find) < num_indiv:
@@ -74,19 +55,24 @@ def avaliar_ransac(dir_path, num_indiv):
         if not any(name in boi for boi in find):
             find.append(rand_indiv)    
     
-    count = [[]]*4
+    rsc_data = [[]]*4
     
     # append results
     for indiv in find:
         print(f'finding match for {indiv}')
         results = find_most_similar(indiv, files)
         for i in range(4):
-            count[i] = count[i] + results[i]
+            rsc_data[i] = rsc_data[i] + results[i]
     
     # count = [same_inl, diff_inl, same_oul, diff_oul]
-    boxplot_inl(count , save=True, out_box="Total_Boxplot.png")
-    boxplot_out(count , save=True, out_box="Total_inlierBoxplot.png")    
-    boxplot_both(count, save=True, out_box="Total_outlierBoxplot.png")
+    boxplot_inl(rsc_data , save=True, out_box="Total_inlierBoxplot.png")
+    boxplot_out(rsc_data , save=True, out_box="Total_outlierBoxplot.png")    
+    boxplot_both(rsc_data, save=True, out_box="Total_Boxplot.png")
+
+    # save data to file
+    with open('ransac_count.dat', 'w') as f:
+        print(f'ransac count data:\n{rsc_data}', file=f)
+
     
 def find_most_similar(src_file, src_files):
     # dont remove from source
@@ -106,7 +92,9 @@ def find_most_similar(src_file, src_files):
     
     src_name = src_file.split('/')[-2]
 
+    count = 1
     for compare in files:
+        print(count, end=' ')
         comp = our_matcher(compare)
         kc, dc = comp.extract_features()
         
@@ -125,7 +113,8 @@ def find_most_similar(src_file, src_files):
         if summ > max_inlier:
             fit = (inliers, outliers, src, dst, comp.bin_img)
             max_inlier = summ
-        
+
+        count += 1
     
     our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src_file, fit[4], save=True)
     return [same_inl, diff_inl, same_oul, diff_oul]
@@ -138,6 +127,22 @@ def find_most_similar(src_file, src_files):
     boxplot_inl(data)
     boxplot_out(data)
     
+
+def test_graph_gen():
+    files = glob.glob(dir1+'/*/*.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_4.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_7.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_13.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_1.png')
+    files.remove('data/Jersey_S1-b/J70/J70_S1_12.png')
+    files.remove('data/Jersey_S1-b/J91/J91_S1_6.png')
+    count = 1
+    for file in files:
+        print(count, end=' ')
+        test = our_matcher(file)
+        test.extract_features()
+        count += 1
+
 
 def ransac_matches(f1, f2):
     t1 = our_matcher(f1)
