@@ -1,5 +1,6 @@
 #!/bin/python3
 
+from unittest import result
 from bovineMatcher import *
 from plot import bov_plot
 import methods as use
@@ -23,6 +24,8 @@ dir2 = 'data/subset'
 
 def main():
     avaliar_ransac(dir_path=dir1, num_indiv=10)
+    # k, d = our_matcher(file1).extract_features()
+    # print(d[0])
     # find_most_similar(file4, 'data/Jersey_S1-b')    
     # find_most_similar(file4, 'data/subset')
     # ransac_matches(file1, file3)
@@ -37,7 +40,32 @@ def main():
 
 def avaliar_ransac(dir_path, num_indiv):
     files = glob.glob(dir_path+'/*/*.png')
-    
+
+    # erros no gen_graph
+    files.remove('data/Jersey_S1-b/J351/J351_S1_10.png')
+    files.remove('data/Jersey_S1-b/J351/J351_S1_8.png')
+    files.remove('data/Jersey_S1-b/J98/J98_S1_12.png')
+    files.remove('data/Jersey_S1-b/J98/J98_S1_15.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_8.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_2.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_4.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_1.png')
+    files.remove('data/Jersey_S1-b/J106/J106_S1_7.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_13.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_1.png')
+    files.remove('data/Jersey_S1-b/J102/J102_S1_4.png')
+    files.remove('data/Jersey_S1-b/J99/J99_S1_1.png')
+    files.remove('data/Jersey_S1-b/J99/J99_S1_9.png')
+    files.remove('data/Jersey_S1-b/J101/J101_S1_0.png')
+    files.remove('data/Jersey_S1-b/J101/J101_S1_1.png')
+    files.remove('data/Jersey_S1-b/J70/J70_S1_1.png')
+    files.remove('data/Jersey_S1-b/J70/J70_S1_12.png')
+    files.remove('data/Jersey_S1-b/J70/J70_S1_4.png')
+    files.remove('data/Jersey_S1-b/J70/J70_S1_8.png')
+    files.remove('data/Jersey_S1-b/J91/J91_S1_6.png')
+    files.remove('data/Jersey_S1-b/J92/J92_S1_11.png')
+    files.remove('data/Jersey_S1-b/J92/J92_S1_12.png')
+
     # random list of diferent bovines to match
     find = []
     while len(find) < num_indiv:
@@ -46,24 +74,27 @@ def avaliar_ransac(dir_path, num_indiv):
         if not any(name in boi for boi in find):
             find.append(rand_indiv)    
     
-    count = [0, 0, 0, 0]
+    count = [[]]*4
     
+    # append results
     for indiv in find:
+        print(f'finding match for {indiv}')
         results = find_most_similar(indiv, files)
-        print(count)
-        count = [c + r for (c, r) in zip(count, results)] 
-            
+        for i in range(4):
+            count[i] = count[i] + results[i]
+    
+    # count = [same_inl, diff_inl, same_oul, diff_oul]
+    boxplot_inl(count , save=True, out_box="Total_Boxplot.png")
+    boxplot_out(count , save=True, out_box="Total_inlierBoxplot.png")    
+    boxplot_both(count, save=True, out_box="Total_outlierBoxplot.png")
     
 def find_most_similar(src_file, src_files):
     # dont remove from source
     files = src_files.copy()
-
-    src = our_matcher(src_file)
-    ks, ds = src.extract_features()
-    
-    # orig = src_file.split('/')[-1]
     files.remove(src_file)
-
+    
+    orig = our_matcher(src_file)
+    ks, ds = orig.extract_features()
     
     max_inlier = 0
     fit = ()
@@ -73,7 +104,7 @@ def find_most_similar(src_file, src_files):
     same_oul = []
     diff_oul = []
     
-    src_name = src_file.split('/')[-1].split('_')[0]
+    src_name = src_file.split('/')[-2]
 
     for compare in files:
         comp = our_matcher(compare)
@@ -84,7 +115,7 @@ def find_most_similar(src_file, src_files):
 
         summ = sum(inliers)
         # se pertence ao mesmo boi
-        if compare.split('/')[-1].split('_')[0] == src_name: 
+        if compare.split('/')[-2] == src_name: 
             same_inl.append(summ)
             same_oul.append(sum(outliers))
         else:
@@ -95,9 +126,9 @@ def find_most_similar(src_file, src_files):
             fit = (inliers, outliers, src, dst, comp.bin_img)
             max_inlier = summ
         
-    return [same_inl, diff_inl, same_oul, diff_oul]
     
-    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src_file, fit[4])
+    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src_file, fit[4], save=True)
+    return [same_inl, diff_inl, same_oul, diff_oul]
 
     # plot boxplot
     data = [same_inl, diff_inl, same_oul, diff_oul]
@@ -219,7 +250,8 @@ def raw_methods():
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
     
-def boxplot_both(data):
+def boxplot_both(data, save=False, out_box='aux.png'):
+    """takes a list of 4"""
     fig = plt.figure(figsize =(10, 7))
     ax = fig.add_subplot(111)
         
@@ -263,7 +295,7 @@ def boxplot_both(data):
                         'same outliers', 'diff outliers'])
     
     # Adding title
-    plt.title("number of matches")
+    plt.title("Total number of filtered matches")
     
     # Removing top axes and right axes
     # ticks
@@ -271,9 +303,15 @@ def boxplot_both(data):
     ax.get_yaxis().tick_left()
         
     # show plot
-    plt.show()
+    if save:
+        plt.savefig(out_box)
+    else:
+        plt.show()
+        
+    plt.close()
     
-def boxplot_inl(data):
+def boxplot_inl(data, save=False, out_box='aux.png'):
+    "takes a list of 4"
     fig = plt.figure(figsize =(10, 7))
     ax = fig.add_subplot(111)
     
@@ -318,17 +356,22 @@ def boxplot_inl(data):
     ax.set_yticklabels(['mesmo boi', 'boi diferente'])
     
     # Adding title
-    plt.title("numero de inliers")
+    plt.title("Total number of Inliers")
     # Removing top axes and right axes
     # ticks
     ax.get_xaxis().tick_bottom()
     ax.get_yaxis().tick_left()
         
     # show plot
-    plt.show()
+    if save:
+        plt.savefig(out_box)
+    else:
+        plt.show()
+    plt.close()
 
 
-def boxplot_out(data):
+def boxplot_out(data, save=False, out_box='aux.png'):
+    """takes a list of 4"""
     fig = plt.figure(figsize =(10, 7))
     ax = fig.add_subplot(111)
     
@@ -378,7 +421,11 @@ def boxplot_out(data):
     ax.get_yaxis().tick_left()
         
     # show plot
-    plt.show()
+    if save:
+        plt.savefig(out_box)
+    else:
+        plt.show()
+    plt.close()
     
 
 if __name__ == "__main__":

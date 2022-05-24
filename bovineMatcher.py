@@ -90,7 +90,8 @@ class our_matcher:
 
         # descriptor = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
         # weights = [1 for i in range(len(descr1[0]))]
-        weights = [0.5, 0.5, 1, 1, 1, 2, 1, 1]
+        # weights = [.5, .5, 1, 1, 1, 2, 1, 1]
+        weights = [1, 1, 1, 1, 1, 1, 1, 1]
         matches = []
         
         for d1 in descr1:
@@ -134,6 +135,7 @@ class our_matcher:
         # A DECIDIR residual_threshol, max_trials, outro Transform
 
         # robustly estimate transform model with RANSAC
+        # all points where residual (euclidian of transformed src to dst) is less than treshold are inliers
         model_robust, inliers = ransac((src, dst), skit.SimilarityTransform, min_samples=3,
                                     residual_threshold=5, max_trials=500)
         
@@ -143,9 +145,12 @@ class our_matcher:
         return inliers, outliers, src, dst
 
 
-    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp):
+    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp, save=False):
         img_orig = np.asarray(cv2.imread(file_img_orig))
         img_comp = np.asarray(cv2.imread(file_img_comp))
+        
+        name_src = file_img_orig.split('/')[-1]
+        name_dst = file_img_comp.split('/')[-1]
         
         inlier_idxs = np.nonzero(inliers)[0]
         outlier_idxs = np.nonzero(outliers)[0]
@@ -166,9 +171,14 @@ class our_matcher:
                     np.column_stack((outlier_idxs, outlier_idxs)), matches_color='r')
         ax[1].axis('off')
         ax[1].set_title(f'Faulty correspondences -> {sum(outliers)}')
-        fig.suptitle(f"{file_img_orig.split('/')[-1]}  X  {file_img_comp.split('/')[-1]}")
+        fig.suptitle(f"{name_src}  X  {name_dst}")
 
-        plt.show()
+        if save:
+            plt.savefig(f"{name_src.split('.')[0]}_X_{name_dst}")
+        else:
+            plt.show()
+            
+        plt.close()
     
         
     # -- to remove --
