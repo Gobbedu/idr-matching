@@ -3,24 +3,17 @@
 
 # # soh copiei e colei uma organizacao legal aki
 # TODO: comentarios
-from math import inf, sqrt
-
-import scipy
-from sklearn.metrics.pairwise import euclidean_distances
-
-import skimage.transform as skit
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
 from skimage.measure import ransac
 from skimage.feature import plot_matches
+import skimage.transform as skit
+from sklearn.metrics.pairwise import euclidean_distances
 
-from plot import bov_plot
-from keypoints import img_keypoints
-from descriptor import our_descriptor
-import numpy as np
-import cv2
-from tt import gen_graph
-from scipy.spatial import distance
-import matplotlib.pyplot as plt
+from math import inf, sqrt
+from gen_graph import gen_graph
 
 
 class our_matcher:
@@ -42,7 +35,7 @@ class our_matcher:
         self.matches = list()
   
     
-    def _extract_features(self):
+    def extract_features(self):
         """
             return self.keypoints, self.descriptor\n
             Calls extraction functions and converts to usable
@@ -57,7 +50,7 @@ class our_matcher:
         # self.keypoints = img_keypoints(self.bin_img)
         
         raw_descriptor = gen_graph(self.bin_img)
-        print(f"raw[0]: {raw_descriptor[list(raw_descriptor)[0]]}")
+        # print(f"raw[0]: {raw_descriptor[list(raw_descriptor)[0]]}")
         # RESHAPE DESCRIPTOR
         for key in raw_descriptor:
             if len(raw_descriptor[key]['neigh']) == 3:
@@ -69,6 +62,7 @@ class our_matcher:
                 cy.append(raw_descriptor[key]['center'][1])
                 # print("pertence? ", cx + cy in self.keypoints)
                 if cx + cy in self.keypoints:
+                    # NAO ADICIONA CENTER DOS VIZINHOS NO DESCRITOR
                     # for neighkey in raw_descriptor[key]['neigh']:
                     #     # print("neigh c:", raw_descriptor[neighkey]['center'])
                     #     cx.append(raw_descriptor[neighkey]['center'][0])
@@ -81,35 +75,37 @@ class our_matcher:
                         
                     V = cx + cy + d + a
                     self.descriptor.append(V)
+                    
+        # print(f"len raw {len(raw_descriptor)} len neigh = 3 {len(self.descriptor)}")
         
         return self.keypoints, self.descriptor
 
 
-    def _match_features(descr1, descr2):
+    def match_features(descr1, descr2):
         """
         Return [[kp1, kp2]]
         Returns a list of sorted matches composed of the minimum Euclidean distance of 
         the descriptor vectors and a tuple of the descriptors
         """
-        
-        # if len(descr2) < len(descr1):
-        #     descr1, descr2 = descr2, descr1
-            
-        # dist = lambda x, y: distance.euclidean(x, y)
-        
+
+        # descriptor = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
+        # weights = [1 for i in range(len(descr1[0]))]
+        weights = [0.5, 0.5, 1, 1, 1, 2, 1, 1]
         matches = []
+        
         for d1 in descr1:
             mini = inf
             smol = []
             for d2 in descr2:
-                # # DMatch Euclidean
-                # sum = 0
-                # for i in range(len(d1)):
-                #     # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
-                #     sum += (d1[i] - d2[i])*(d1[i] - d2[i])
-                # euclidean = sqrt(sum)
+                # DMatch Euclidean with weights
+                sum = 0
+                for i in range(len(d1)):
+                    # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
+                    sum += weights[i]*(d1[i] - d2[i])*(d1[i] - d2[i])
+                euclidean = sqrt(sum)/8
                 
-                euclidean = euclidean_distances([d1], [d2])
+                # no weights
+                # euclidean = euclidean_distances([d1], [d2])
 
                 if euclidean < mini:
                     mini = euclidean
@@ -123,7 +119,7 @@ class our_matcher:
         return matches
 
 
-    def _ransac(matches):
+    def ransac_matches(matches):
         """returns [inliers], [outliers], [kp_src], [kp_dst]"""
        
         # split from matches source and compared 
@@ -141,7 +137,7 @@ class our_matcher:
         model_robust, inliers = ransac((src, dst), skit.SimilarityTransform, min_samples=3,
                                     residual_threshold=5, max_trials=500)
         
-        print("print model input:", (src, dst))
+        # print("print model input:", (src, dst))
         outliers = inliers == False
 
         return inliers, outliers, src, dst
@@ -177,20 +173,7 @@ class our_matcher:
         
     # -- to remove --
     def draw_good_matches(img_file1, kp1, img_file2, kp2, matches):
-        """Visualizes a list of good matches
-        
-            This function visualizes a list of good matches. It is only required in
-            OpenCV releases that do not ship with the function drawKeypoints.
-            The function draws two images (img1 and img2) side-by-side,
-            highlighting a list of keypoints in both, and connects matching
-            keypoints in the two images with blue lines.
-            :param img1: first image
-            :param kp1: list of keypoints for first image
-            :param img2: second image
-            :param kp2: list of keypoints for second image
-            :param matches: list of good matches
-            :returns: annotated output image
-        """
+        """Visualizes a list of good matches"""
         # Create a new output image that concatenates the two images together
         # (a.k.a) a montage
         
@@ -221,12 +204,6 @@ class our_matcher:
             center1 = [m[0][0], m[0][1]]
             center2 = [m[1][0], m[1][1]]
             
-            # print(center1)
-            # print(center2)
-            # print(m[0])
-            # print(m[1][0])
-            # print(m[1][1])
-            
             if center1 in kp1 and center2 in kp2:
                 # print("its a match")
                 r1, c1 = center1 
@@ -234,20 +211,11 @@ class our_matcher:
             else: 
                 continue
             
-            # r1, c1 = center2 
-            # r2, c2 = center1 
-
-
             # Draw a small circle at both co-ordinates
-            # radius 4
-            # colour blue
-            # thickness = 1
             cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
             cv2.circle(out, (int(c2)+cols1, int(r2)), radius, COLOR, thickness)
 
             # Draw a line in between the two points
-            # thickness = 1
-            # colour blue
             cv2.line(out, (int(c1), int(r1)), (int(c2)+cols1, int(r2)), COLOR,
                     thickness)
         # print(kp1)
@@ -258,7 +226,7 @@ class our_matcher:
     def draw_keypoints(self):
         # self.keypoints = img_keypoints(self.bin_img)
         if not self.keypoints:
-            self._extract_features()
+            self.extract_features()
         img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
 
         rows, cols = img.shape[:2]
@@ -283,7 +251,6 @@ class our_matcher:
         
     def draw_descriptor_center(self):
         img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
-        self.descriptor = our_descriptor(self.bin_img)
 
         rows, cols = img.shape[:2]
         out = np.zeros((rows, cols, 3))
@@ -307,24 +274,20 @@ class our_matcher:
     
 # EUCLIDEAN DISTANCE of descriptors distance and angle
 # distance from ALL keypoints not precise, limit to closer centers (TODO)
-def closest_pairs(img1, img2, raw=False):
+def closest_pairs(img1, img2):
     """ 
     returns a list of vertices pairs, [(v1), (v2)]
     where v1 belongs to img1 and v2 img2, and v2 is the closest vertice to v1
     """
-    if raw:
-        keypoints1 = img_keypoints(img1)
-        keypoints2 = img_keypoints(img2)
-    else:
-        keypoints1, desc1 = our_matcher(img1)._extract_features()
-        keypoints2, desc2 = our_matcher(img2)._extract_features()
+    keypoints1, desc1 = our_matcher(img1).extract_features()
+    keypoints2, desc2 = our_matcher(img2).extract_features()
     
     pairs = []
     for k1 in keypoints1:
         min = inf
         for k2 in keypoints2:
             # v1 = des1[k1]['center']
-            dist = scipy.spatial.distance.euclidean(k1, k2)
+            dist = euclidean_distances(k1, k2)
             if dist < min:
                 min = dist
                 pt = (k1, k2)

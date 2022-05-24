@@ -1,11 +1,11 @@
 #!/bin/python3
-import os
-import methods as use
-# import descriptor as ds
-# from bovineMatcher import *
-# from plot import bov_plot
-from ransac import ransac
+
 from bovineMatcher import *
+from plot import bov_plot
+import methods as use
+import os
+import glob
+import random
 
 file1 = './data/J8_S2_0.png'
 file2 = './data/J8_S2_1.png'
@@ -17,48 +17,107 @@ roi1 = './data/J8_S2_0_roi.jpg'
 # roi2 = './data/J8_S2_1_roi.jpg'
 file4 = 'data/Jersey_S1-b/J11/J11_S1_13.png'
 
+dir1 = 'data/Jersey_S1-b'
+dir2 = 'data/subset'
+
+
 def main():
-    # find_most_similar(file4, 'data/subset')    
-    ransac_matches(file1, file3)
-    ransac_matches(file1, file2)
+    avaliar_ransac(dir_path=dir1, num_indiv=10)
+    # find_most_similar(file4, 'data/Jersey_S1-b')    
+    # find_most_similar(file4, 'data/subset')
+    # ransac_matches(file1, file3)
+    # ransac_matches(file1, file2)
     # test_matcher(file1, file2)
     # ransac_matches(file1, file2_rot90)
     # test_keypoints(file1)
     # test_descr_center(file3)
     # vertice_distance(file1, file2, "sameboidist.png")
     # test_descriptor()
+
+
+def avaliar_ransac(dir_path, num_indiv):
+    files = glob.glob(dir_path+'/*/*.png')
     
-def find_most_similar(src_file, dir_path):
-    files = iterate_directory(dir_path)
+    # random list of diferent bovines to match
+    find = []
+    while len(find) < num_indiv:
+        rand_indiv = files[random.randint(0, len(files)-1)]
+        name = str(rand_indiv.split('/')[-2])
+        if not any(name in boi for boi in find):
+            find.append(rand_indiv)    
+    
+    count = [0, 0, 0, 0]
+    
+    for indiv in find:
+        results = find_most_similar(indiv, files)
+        print(count)
+        count = [c + r for (c, r) in zip(count, results)] 
+            
+    
+def find_most_similar(src_file, src_files):
+    # dont remove from source
+    files = src_files.copy()
+
     src = our_matcher(src_file)
-    ks, ds = src._extract_features()
+    ks, ds = src.extract_features()
+    
+    # orig = src_file.split('/')[-1]
+    files.remove(src_file)
+
     
     max_inlier = 0
-    fit = tuple()
+    fit = ()
     
+    same_inl = []
+    diff_inl = []
+    same_oul = []
+    diff_oul = []
+    
+    src_name = src_file.split('/')[-1].split('_')[0]
+
     for compare in files:
         comp = our_matcher(compare)
-        kc, dc = comp._extract_features()
+        kc, dc = comp.extract_features()
         
-        matches = our_matcher._match_features(ds, dc)
-        inliers, outliers, src, dst = our_matcher._ransac(matches)
+        matches = our_matcher.match_features(ds, dc)
+        inliers, outliers, src, dst = our_matcher.ransac_matches(matches)
+
         summ = sum(inliers)
+        # se pertence ao mesmo boi
+        if compare.split('/')[-1].split('_')[0] == src_name: 
+            same_inl.append(summ)
+            same_oul.append(sum(outliers))
+        else:
+            diff_inl.append(summ)
+            diff_oul.append(sum(outliers))
+
         if summ > max_inlier:
-            fit = (inliers, outliers, src, dst, comp)
+            fit = (inliers, outliers, src, dst, comp.bin_img)
             max_inlier = summ
+        
+    return [same_inl, diff_inl, same_oul, diff_oul]
     
-    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src.bin_img, fit[4].bin_img)
+    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src_file, fit[4])
+
+    # plot boxplot
+    data = [same_inl, diff_inl, same_oul, diff_oul]
+    print(f"data:\n{data}")
     
+    boxplot_both(data)
+    boxplot_inl(data)
+    boxplot_out(data)
+    
+
 def ransac_matches(f1, f2):
     t1 = our_matcher(f1)
     t2 = our_matcher(f2)
     
-    k1, d1 = t1._extract_features()
-    k2, d2 = t2._extract_features()
-    matches = our_matcher._match_features(d1, d2)
+    k1, d1 = t1.extract_features()
+    k2, d2 = t2.extract_features()
+    matches = our_matcher.match_features(d1, d2)
     # print(f"MATCHES[1]: {matches[0][1]}")
     # our_matcher._ransac_vertices(d1, d2, t1.bin_img, t2.bin_img)
-    inl, out, src, dst = our_matcher._ransac(matches)
+    inl, out, src, dst = our_matcher.ransac_matches(matches)
     our_matcher.draw_ransac_matches(inl, out, src, dst, f1, f2)
 
 
@@ -70,14 +129,18 @@ def test_keypoints(f1):
 def test_descr_center(file):
     test = our_matcher(file)
     test.draw_descriptor_center()
+
+def test_descriptor():
+    k, d = our_matcher(file1).extract_features()
+    print(d[0])
     
 def test_matcher(f1, f2):
     test1 = our_matcher(f1)
     test2 = our_matcher(f2)
-    kp1, desc1 = test1._extract_features()
-    kp2, desc2 = test2._extract_features()
+    kp1, desc1 = test1.extract_features()
+    kp2, desc2 = test2.extract_features()
     
-    matches = our_matcher._match_features(desc1, desc2)
+    matches = our_matcher.match_features(desc1, desc2)
     # print(matches)
     # for m in matches:
     #     print("p1:",m[1][0])
@@ -122,23 +185,23 @@ def vertice_distance(f1, f2, out, raw=False):
     # AVERAGE DISTANCE FROM (0,0) ON MAPPED DIFF POINTS
     avg = 0
     for pt in m:
-        avg += scipy.spatial.distance.euclidean((0,0), pt)
+        avg += euclidean_distances((0,0), pt)
     avg /= len(m)
     print(f"average distance of file {f1} to {f2} is : {avg} ")
 
-    # viz.plot_data(m)
-    i, o, s = ransac(m, 10, 50)
-    viz.plot_ransac(i, o, s)
+    # # viz.plot_data(m)
+    # i, o, s = ransac(m, 10, 50)
+    # viz.plot_ransac(i, o, s)
     viz.show()
     # viz.save(out)
     viz.close()
 
 
-def test_descriptor():
+def raw_methods():
     # descriptor distance from another image
-    des1 = our_descriptor(file1)
-    des2 = our_descriptor(file2)
-    des3 = our_descriptor(file3)
+    key1, des1 = our_matcher(file1).extract_features()
+    key2, des2 = our_matcher(file2).extract_features()
+    key3, des3 = our_matcher(file3).extract_features()
 
     #testing descriptor extraction
     # print(des1[0])
@@ -155,5 +218,168 @@ def test_descriptor():
     # use.blob_visualize(file2, roi2, "defaultSift1.png", False)
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
+    
+def boxplot_both(data):
+    fig = plt.figure(figsize =(10, 7))
+    ax = fig.add_subplot(111)
+        
+    # Creating axes instance
+    bp = ax.boxplot(data, patch_artist = True,
+                    notch ='True', vert = 0)
+    
+    colors = ['#00FF00', '#00FF00',
+            '#FF0000', '#FF0000']
+    
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+    
+    # changing color and linewidth of
+    # whiskers
+    for whisker in bp['whiskers']:
+        whisker.set(color ='#8B008B',
+                    linewidth = 1.5,
+                    linestyle =":")
+    
+    # changing color and linewidth of
+    # caps
+    for cap in bp['caps']:
+        cap.set(color ='#8B008B',
+                linewidth = 2)
+    
+    # changing color and linewidth of
+    # medians
+    for median in bp['medians']:
+        median.set(color ='red',
+                linewidth = 3)
+    
+    # changing style of fliers
+    for flier in bp['fliers']:
+        flier.set(marker ='D',
+                color ='#e7298a',
+                alpha = 0.5)
+        
+    # x-axis labels
+    ax.set_yticklabels(['same inliers', 'diff inliers',
+                        'same outliers', 'diff outliers'])
+    
+    # Adding title
+    plt.title("number of matches")
+    
+    # Removing top axes and right axes
+    # ticks
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+        
+    # show plot
+    plt.show()
+    
+def boxplot_inl(data):
+    fig = plt.figure(figsize =(10, 7))
+    ax = fig.add_subplot(111)
+    
+    
+    # Creating axes instance
+    bp = ax.boxplot([data[0], data[1]], patch_artist = True,
+                    notch ='False', vert = 0)
+    # bp = ax.boxplot([data[0], data[1]], patch_artist = True,
+    #                 notch ='True', vert = 0)
+    
+    colors = ['#00FF00', '#00FF00']
+    
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+    
+    # changing color and linewidth of
+    # whiskers
+    for whisker in bp['whiskers']:
+        whisker.set(color ='#8B008B',
+                    linewidth = 1.5,
+                    linestyle =":")
+    
+    # changing color and linewidth of
+    # caps
+    for cap in bp['caps']:
+        cap.set(color ='#8B008B',
+                linewidth = 2)
+    
+    # changing color and linewidth of
+    # medians
+    for median in bp['medians']:
+        median.set(color ='red',
+                linewidth = 3)
+    
+    # changing style of fliers
+    for flier in bp['fliers']:
+        flier.set(marker ='D',
+                color ='#e7298a',
+                alpha = 0.5)
+        
+    # x-axis labels
+    ax.set_yticklabels(['mesmo boi', 'boi diferente'])
+    
+    # Adding title
+    plt.title("numero de inliers")
+    # Removing top axes and right axes
+    # ticks
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+        
+    # show plot
+    plt.show()
+
+
+def boxplot_out(data):
+    fig = plt.figure(figsize =(10, 7))
+    ax = fig.add_subplot(111)
+    
+    
+    # Creating axes instance
+    bp = ax.boxplot([data[2], data[3]], patch_artist = True,
+                    notch ='True', vert = 0)
+    
+    colors = ['#FF0000', '#FF0000']
+    
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+    
+    # changing color and linewidth of
+    # whiskers
+    for whisker in bp['whiskers']:
+        whisker.set(color ='#8B008B',
+                    linewidth = 1.5,
+                    linestyle =":")
+    
+    # changing color and linewidth of
+    # caps
+    for cap in bp['caps']:
+        cap.set(color ='#8B008B',
+                linewidth = 2)
+    
+    # changing color and linewidth of
+    # medians
+    for median in bp['medians']:
+        median.set(color ='red',
+                linewidth = 3)
+    
+    # changing style of fliers
+    for flier in bp['fliers']:
+        flier.set(marker ='D',
+                color ='#e7298a',
+                alpha = 0.5)
+        
+    # x-axis labels
+    ax.set_yticklabels(['mesmo boi', 'boi diferente'])
+    
+    # Adding title
+    plt.title("numero de outliers")
+    # Removing top axes and right axes
+    # ticks
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+        
+    # show plot
+    plt.show()
+    
+
 if __name__ == "__main__":
     main()
