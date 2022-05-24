@@ -11,10 +11,10 @@ from skimage.draw import line, line_aa
 
 import bwmorph
 
-IMG_PATH = 'data/2-seg/Jersey_S1-b/J99/J99_S1_1.png'
+IMG_PATH = 'data/2-seg/Jersey_S1-b/J106/J106_S1_4.png'
 # './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
-TOO_SHORT = 15.0
+TOO_SHORT = 9.9
 ISO_NEIGH = 1
 draw_antialiased = False
 DEBUGPRINT = False
@@ -182,27 +182,28 @@ def gen_graph(img_path):
     merge_counter = 0
     while vertexes_to_merge:
         e = vertexes_to_merge[0]
-        # add the undefined new vertex, except for its central point. we must calculate the centre before removing the vertexes to-merge, as then that information would be lost
-        ins_index += 1  # increment index
-        vertexes[ins_index] = create_vertex(center=np.around(np.add(vertexes[e[0]]['center'], vertexes[e[1]]['center'])/2).astype(int).tolist())
+        if e[0] != e[1]:
+            # add the undefined new vertex, except for its central point. we must calculate the centre before removing the vertexes to-merge, as then that information would be lost
+            ins_index += 1  # increment index
+            vertexes[ins_index] = create_vertex(center=np.around(np.add(vertexes[e[0]]['center'], vertexes[e[1]]['center'])/2).astype(int).tolist())
 
-        # get the set of neighbors from the vertexes to be merged (those are the neighbors from the future merged vertex)
-        s = set(vertexes[e[0]]['neigh'] + vertexes[e[1]]['neigh'])  # we use a set in order to automatically deal with duplicates
-        s.discard(e[0])  # remove the vertexes to-merge from the set
-        s.discard(e[1])
-        s = list(s)  # cast it to a list again for ease of use
+            # get the set of neighbors from the vertexes to be merged (those are the neighbors from the future merged vertex)
+            s = set(vertexes[e[0]]['neigh'] + vertexes[e[1]]['neigh'])  # we use a set in order to automatically deal with duplicates
+            s.discard(e[0])  # remove the vertexes to-merge from the set
+            s.discard(e[1])
+            s = list(s)  # cast it to a list again for ease of use
 
-        # remove the vertexes to merge, completely removing any references to those from their neighbors in the process
-        remove_vertex(vertexes, e[0])
-        remove_vertex(vertexes, e[1])
+            # remove the vertexes to merge, completely removing any references to those from their neighbors in the process
+            remove_vertex(vertexes, e[0])
+            remove_vertex(vertexes, e[1])
 
-        # add edges to new vertex and neighbors
-        for i in s:
-            create_edge(vertexes, ins_index, i)
-            # debugprint(vertexes[ins_index])
-            # debugprint(vertexes[i])
+            # add edges to new vertex and neighbors
+            for i in s:
+                create_edge(vertexes, ins_index, i)
+                # debugprint(vertexes[ins_index])
+                # debugprint(vertexes[i])
+            merge_counter += 1
 
-        merge_counter += 1
         vertexes_to_merge.pop(0)  # removal
 
         # finally, we must also ensure that the indexes in the list of vertexes to merge are also updated!

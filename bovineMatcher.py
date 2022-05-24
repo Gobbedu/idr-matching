@@ -145,7 +145,7 @@ class our_matcher:
         return inliers, outliers, src, dst
 
 
-    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp, save=False):
+    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):
         img_orig = np.asarray(cv2.imread(file_img_orig))
         img_comp = np.asarray(cv2.imread(file_img_comp))
         
@@ -173,146 +173,13 @@ class our_matcher:
         ax[1].set_title(f'Faulty correspondences -> {sum(outliers)}')
         fig.suptitle(f"{name_src}  X  {name_dst}")
 
-        if save:
+        if save and out_img == None:
             plt.savefig(f"{name_src.split('.')[0]}_X_{name_dst}")
+        elif save and out_img != None:
+            plt.savefig(out_img)
         else:
             plt.show()
             
         plt.close()
     
-        
-    # -- to remove --
-    def draw_good_matches(img_file1, kp1, img_file2, kp2, matches):
-        """Visualizes a list of good matches"""
-        # Create a new output image that concatenates the two images together
-        # (a.k.a) a montage
-        
-        img1 = cv2.imread(img_file1, cv2.COLOR_BGR2RGB)
-        img2 = cv2.imread(img_file2, cv2.COLOR_BGR2RGB)
-        print(img1.shape)
-        print(img2.shape)
-        
-        rows1, cols1 = img1.shape[:2]
-        rows2, cols2 = img2.shape[:2]
-
-        out = np.zeros((max([rows1, rows2]), cols1+cols2, 3), dtype='uint8')
-
-        # Place the first image to the left, copy 3x to make it RGB
-        out[:rows1, :cols1, :] = np.dstack([img1, img1, img1])
-
-        # Place the next image to the right of it, copy 3x to make it RGB
-        out[:rows2, cols1:cols1+cols2, :] = np.dstack([img2, img2, img2])
-
-        radius = 4
-        COLOR = (0, 255, 0)
-        thickness = 1
-
-        # For each pair of points we have between both images
-        # draw circles, then connect a line between them
-        for m in matches:
-            # Get the matching keypoints for each of the images
-            center1 = [m[0][0], m[0][1]]
-            center2 = [m[1][0], m[1][1]]
-            
-            if center1 in kp1 and center2 in kp2:
-                # print("its a match")
-                r1, c1 = center1 
-                r2, c2 = center2 
-            else: 
-                continue
-            
-            # Draw a small circle at both co-ordinates
-            cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
-            cv2.circle(out, (int(c2)+cols1, int(r2)), radius, COLOR, thickness)
-
-            # Draw a line in between the two points
-            cv2.line(out, (int(c1), int(r1)), (int(c2)+cols1, int(r2)), COLOR,
-                    thickness)
-        # print(kp1)
-        # print(kp2)
-        return out
-    
-    
-    def draw_keypoints(self):
-        # self.keypoints = img_keypoints(self.bin_img)
-        if not self.keypoints:
-            self.extract_features()
-        img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
-
-        rows, cols = img.shape[:2]
-        out = np.zeros((rows, cols, 3))
-
-        out[:rows, :cols, :] = np.dstack([img, img, img])
-
-        radius = 4
-        COLOR = (0, 255, 0)
-        thickness = 1
-
-        for p in self.keypoints:
-            # c1, r1 = p 
-            r1, c1 = p
-
-            # Draw a small circle at both co-ordinates
-            cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
-        
-        cv2.imshow("image",out)
-        cv2.waitKey(0)
-       
-        
-    def draw_descriptor_center(self):
-        img = cv2.imread(self.bin_img, cv2.COLOR_BGR2RGB)
-
-        rows, cols = img.shape[:2]
-        out = np.zeros((rows, cols, 3))
-
-        out[:rows, :cols, :] = np.dstack([img, img, img])
-
-        radius = 4
-        COLOR = (0, 255, 0)
-        thickness = 1
-
-        for V in self.descriptor:
-            # c1, r1 = p 
-            r1, c1 = self.descriptor[V]['center']
-
-            # Draw a small circle at both co-ordinates
-            cv2.circle(out, (int(c1), int(r1)), radius, COLOR, thickness)
-        
-        cv2.imshow("image",out)
-        cv2.waitKey(0)
-       
-    
-# EUCLIDEAN DISTANCE of descriptors distance and angle
-# distance from ALL keypoints not precise, limit to closer centers (TODO)
-def closest_pairs(img1, img2):
-    """ 
-    returns a list of vertices pairs, [(v1), (v2)]
-    where v1 belongs to img1 and v2 img2, and v2 is the closest vertice to v1
-    """
-    keypoints1, desc1 = our_matcher(img1).extract_features()
-    keypoints2, desc2 = our_matcher(img2).extract_features()
-    
-    pairs = []
-    for k1 in keypoints1:
-        min = inf
-        for k2 in keypoints2:
-            # v1 = des1[k1]['center']
-            dist = euclidean_distances(k1, k2)
-            if dist < min:
-                min = dist
-                pt = (k1, k2)
-        pairs.append(pt)        
-        
-    # return avg
-        
-    # map poits of v2 such that v1 is the base 0
-    mapped = []
-    for pts in pairs:
-        p1 = pts[0]
-        p2 = pts[1]
-        # mapped v2 or point 2
-        pt = [p2[0] - p1[0], p2[1] - p1[1]]
-        mapped.append(pt)
-
-    return mapped        
- 
+           

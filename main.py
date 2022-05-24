@@ -1,6 +1,8 @@
 #!/bin/python3
 
 from unittest import result
+
+from numpy import outer
 from bovineMatcher import *
 from plot import bov_plot
 import methods as use
@@ -24,18 +26,13 @@ dir2 = 'data/subset'
 
 
 def main():
-    avaliar_ransac(dir_path=dir1, num_indiv=10)
+    # avaliar_ransac(dir_path=dir1, num_indiv=10)
     # find_most_similar(file4, 'data/Jersey_S1-b')    
     # find_most_similar(file4, 'data/subset')
     # ransac_matches(file1, file3)
     # ransac_matches(file1, file2)
-    # test_matcher(file1, file2)
     # ransac_matches(file1, file2_rot90)
-    # test_keypoints(file1)
-    # test_descr_center(file3)
-    # vertice_distance(file1, file2, "sameboidist.png")
-    # test_descriptor()
-
+    neigh_hist()
 
 def avaliar_ransac(dir_path, num_indiv):
     files = glob.glob(dir_path+'/*/*.png')
@@ -65,12 +62,12 @@ def avaliar_ransac(dir_path, num_indiv):
             rsc_data[i] = rsc_data[i] + results[i]
     
     # count = [same_inl, diff_inl, same_oul, diff_oul]
-    boxplot_inl(rsc_data , save=True, out_box="Total_inlierBoxplot.png")
-    boxplot_out(rsc_data , save=True, out_box="Total_outlierBoxplot.png")    
-    boxplot_both(rsc_data, save=True, out_box="Total_Boxplot.png")
+    boxplot_inl(rsc_data , save=True, out_box="results/full_matches/Total_inlierBoxplot.png")
+    boxplot_out(rsc_data , save=True, out_box="results/full_matches/Total_outlierBoxplot.png")    
+    boxplot_ransac(rsc_data, save=True, out_box="results/full_matches/Total_Boxplot.png")
 
     # save data to file
-    with open('ransac_count.dat', 'w') as f:
+    with open('results/full_matches/ransac_count.dat', 'w') as f:
         print(f'ransac count data:\n{rsc_data}', file=f)
 
     
@@ -92,9 +89,14 @@ def find_most_similar(src_file, src_files):
     
     src_name = src_file.split('/')[-2]
 
+    name_src = src_file.split('/')[-1]
+
+
     count = 1
     for compare in files:
         print(count, end=' ')
+        dst_name = compare.split('/')[-1]
+        
         comp = our_matcher(compare)
         kc, dc = comp.extract_features()
         
@@ -115,27 +117,28 @@ def find_most_similar(src_file, src_files):
             max_inlier = summ
 
         count += 1
+        our_matcher.draw_ransac_matches(inliers, outliers, src, dst, src_file,
+                                        comp.bin_img, save=True,
+                                        out_img=f'results/full_matches/{src_name}_X_{dst_name}')
     
-    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3], src_file, fit[4], save=True)
+    dst_name = fit[4].split('/')[-1]
+    our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], fit[3],
+        src_file, fit[4], save=True,
+        out_img=f'results/full_matches/MATCH_{src_name}_X_{dst_name}')
+                                    
     return [same_inl, diff_inl, same_oul, diff_oul]
 
     # plot boxplot
     data = [same_inl, diff_inl, same_oul, diff_oul]
     print(f"data:\n{data}")
     
-    boxplot_both(data)
+    boxplot_ransac(data)
     boxplot_inl(data)
     boxplot_out(data)
     
 
 def test_graph_gen():
     files = glob.glob(dir1+'/*/*.png')
-    files.remove('data/Jersey_S1-b/J106/J106_S1_4.png')
-    files.remove('data/Jersey_S1-b/J106/J106_S1_7.png')
-    files.remove('data/Jersey_S1-b/J102/J102_S1_13.png')
-    files.remove('data/Jersey_S1-b/J102/J102_S1_1.png')
-    files.remove('data/Jersey_S1-b/J70/J70_S1_12.png')
-    files.remove('data/Jersey_S1-b/J91/J91_S1_6.png')
     count = 1
     for file in files:
         print(count, end=' ')
@@ -157,82 +160,36 @@ def ransac_matches(f1, f2):
     our_matcher.draw_ransac_matches(inl, out, src, dst, f1, f2)
 
 
-    
-def test_keypoints(f1):
-    test = our_matcher(f1)
-    test.draw_keypoints()
-    
-def test_descr_center(file):
-    test = our_matcher(file)
-    test.draw_descriptor_center()
+def neigh_hist():
+    files = glob.glob(dir1+'/*/*.png')
 
-def test_descriptor():
-    k, d = our_matcher(file1).extract_features()
-    print(d[0])
-    
-def test_matcher(f1, f2):
-    test1 = our_matcher(f1)
-    test2 = our_matcher(f2)
-    kp1, desc1 = test1.extract_features()
-    kp2, desc2 = test2.extract_features()
-    
-    matches = our_matcher.match_features(desc1, desc2)
-    # print(matches)
-    # for m in matches:
-    #     print("p1:",m[1][0])
-    #     print("p2:",m[1][1])
-    #     print("distance: ",m[0])
-    # print(len(matches))
+    # #(neigh) p/ 1, 2, 3, 4, < 4 
+    data = {1: 0, 2: 0, 3: 0, 4: 0, 5:0}
 
-    out_img = our_matcher.draw_good_matches(f1, kp1, f2, kp2, matches)
-    # cv2.imwrite("sameboimatch.png", out_img)
-    cv2.imshow("image", out_img)
-    cv2.waitKey(0)
+    for file in files:
+        raw_descriptor = gen_graph(file)        
+        for key in raw_descriptor:
+            N = len(raw_descriptor[key]['neigh'])
+            if N <= 4:
+                data[N] += 1
+            else:
+                data['> 4'] += 1
+
+    # resultado de rodar em Jersey_S1-b
+    # data = {1: 0, 2: 3926, 3: 13739, 4: 584, 5: 3}
+
+    names = ['1', '2', '3', '4', '> 4']    
+    values = list(data.values())
+    summ = sum(values)
+
+    values = [values[i]/summ for i in range(len(values))]
+    
+    plt.bar(names, values)
+    plt.ylabel('Probability of occuring')
+    plt.xlabel('Number of neighbours')
+    plt.show()
     
     
-def iterate_directory(dir):
-    # dir = 'data/Jersey_S1-b'
-    files = []
-    for root, dirs, filenames in os.walk(dir):
-        for file in filenames:
-            f = os.path.join(root, file)
-            if "png" in f:
-                files.append(f)
-
-    # src = files[0]
-    # files.remove(src)
-    # small = ("src", inf, "file")
-    
-    # for file in files:
-    #     x = closest_pairs(src, file)
-    #     if x < small[1]:
-    #         small = (src, x, file)
-
-    # for file in files:
-    #     print(file)
-    # print(len(files))
-    return files
-
-def vertice_distance(f1, f2, out, raw=False):
-    # DIFERENCE BETWEEN (X,Y) PIXEL VERTICES    
-    m = closest_pairs(f1, f2, raw)
-    viz = bov_plot(size=max(max(m)), ticks=10, title=f1+"\n"+f2)
-
-    # AVERAGE DISTANCE FROM (0,0) ON MAPPED DIFF POINTS
-    avg = 0
-    for pt in m:
-        avg += euclidean_distances((0,0), pt)
-    avg /= len(m)
-    print(f"average distance of file {f1} to {f2} is : {avg} ")
-
-    # # viz.plot_data(m)
-    # i, o, s = ransac(m, 10, 50)
-    # viz.plot_ransac(i, o, s)
-    viz.show()
-    # viz.save(out)
-    viz.close()
-
-
 def raw_methods():
     # descriptor distance from another image
     key1, des1 = our_matcher(file1).extract_features()
@@ -255,7 +212,7 @@ def raw_methods():
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
     
-def boxplot_both(data, save=False, out_box='aux.png'):
+def boxplot_ransac(data, save=False, out_box='aux.png'):
     """takes a list of 4"""
     fig = plt.figure(figsize =(10, 7))
     ax = fig.add_subplot(111)
