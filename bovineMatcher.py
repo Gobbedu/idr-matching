@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from skimage.measure import ransac
 from skimage.feature import plot_matches
 import skimage.transform as skit
-from sklearn.metrics.pairwise import euclidean_distances
 
 from math import inf, sqrt
 from gen_graph import gen_graph
@@ -25,10 +24,8 @@ class our_matcher:
     def __init__(self, binary_img):
         """Constructor
             This method initializes the descriptor and matcher
-            :param train_image: training or template image showing the object
-                                of interest
+            binary_img (string): binary image file from region of interest
         """
-        # self.keypoints = img_keypoints(binary_img)
         self.bin_img = binary_img
         self.descriptor = list()
         self.keypoints = list()
@@ -36,16 +33,18 @@ class our_matcher:
   
     
     def extract_features(self):
-        """
-            return self.keypoints, self.descriptor\n
-            Calls extraction functions and converts to usable
-            descriptor vector of 8 dimentions, list of lists
-            e.g: V = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
+        """Reorder descriptor from gen_graph() in a list
+
+        Returns:
+            keypoints (list):  
+
+            descriptor (list): new descriptor of image with each item from the list as another list with 
+            [c0x, c0y, d1, d2, d3, a1, a2, a3]
             where   
+            
             c = pixel coord of vertices,
             d = distance for neighbour vertices,
             a = angle for neighbour vertices  
-            and keypoints list of pixels, list of lists 
         """
         # self.keypoints = img_keypoints(self.bin_img)
         
@@ -76,16 +75,16 @@ class our_matcher:
                     V = cx + cy + d + a
                     self.descriptor.append(V)
                     
-        # print(f"len raw {len(raw_descriptor)} len neigh = 3 {len(self.descriptor)}")
-        
         return self.keypoints, self.descriptor
 
 
     def match_features(descr1, descr2):
-        """
-        Return [[kp1, kp2]]
-        Returns a list of sorted matches composed of the minimum Euclidean distance of 
+        """Returns a list of sorted matches composed of the minimum Euclidean distance of 
         the descriptor vectors and a tuple of the descriptors
+
+        Returns:
+            list: list of pair of coordinates from descriptor1 and descriptor2 [[keypoints1], [keytpoins2]]
+            [[x1, y1], [x2, y2]], [...]
         """
 
         # descriptor = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
@@ -94,20 +93,16 @@ class our_matcher:
         weights = [1, 1, 1, 1, 1, 1, 1, 1]
         matches = []
         
+        # DMatch Euclidean distance with weights
         for d1 in descr1:
             mini = inf
             smol = []
             for d2 in descr2:
-                # DMatch Euclidean with weights
                 sum = 0
                 for i in range(len(d1)):
-                    # sum += dist(descr1[d1][i], descr2[d2][i])*dist(descr1[d1][i], descr2[d2][i])
                     sum += weights[i]*(d1[i] - d2[i])*(d1[i] - d2[i])
                 euclidean = sqrt(sum)/8
                 
-                # no weights
-                # euclidean = euclidean_distances([d1], [d2])
-
                 if euclidean < mini:
                     mini = euclidean
                     smol = d2
@@ -121,31 +116,41 @@ class our_matcher:
 
 
     def ransac_matches(matches):
-        """returns [inliers], [outliers], [kp_src], [kp_dst]"""
+        """separates data in matches with ransac into inliers and outliers
+        returns (N,) array of inliers classified as True,
+        together with a list of coordinates from source image (src) and compare image (cmp)
+        for every match
+
+        Args:
+            matches (list): list of coordinates [x, y] from source image and compare image
+
+        Returns:
+            inliers, src, cmp: whose types are respectively -> (N,) array ; list ; list 
+        """
        
         # split from matches source and compared 
         src = []
-        dst = []
+        cmp = []
         for coord in matches:
             src.append(coord[0])
-            dst.append(coord[1])
+            cmp.append(coord[1])
         src = np.array(src)
-        dst = np.array(dst)
+        cmp = np.array(cmp)
         
         # A DECIDIR residual_threshol, max_trials, outro Transform
 
         # robustly estimate transform model with RANSAC
-        # all points where residual (euclidian of transformed src to dst) is less than treshold are inliers
-        model_robust, inliers = ransac((src, dst), skit.SimilarityTransform, min_samples=3,
+        # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
+        model_robust, inliers = ransac((src, cmp), skit.SimilarityTransform, min_samples=3,
                                     residual_threshold=5, max_trials=500)
         
-        # print("print model input:", (src, dst))
-        outliers = inliers == False
+        # outliers are the boolean oposite of inliers
+        # outliers = inliers == False
 
-        return inliers, outliers, src, dst
+        return inliers, src, cmp
 
 
-    def draw_ransac_matches(inliers, outliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):
+    def draw_ransac_matches(inliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):
         img_orig = np.asarray(cv2.imread(file_img_orig))
         img_comp = np.asarray(cv2.imread(file_img_comp))
         
@@ -153,6 +158,8 @@ class our_matcher:
         name_dst = file_img_comp.split('/')[-1]
         
         inlier_idxs = np.nonzero(inliers)[0]
+
+        outliers = inliers == False
         outlier_idxs = np.nonzero(outliers)[0]
 
         # visualize correspondence
