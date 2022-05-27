@@ -15,7 +15,7 @@ IMG_PATH = 'data/2-seg/Jersey_S1-b/J106/J106_S1_4.png'
 # './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 9.9
-ISO_NEIGH = 1
+ISO_NEIGH = 0
 draw_antialiased = False
 DEBUGPRINT = False
 

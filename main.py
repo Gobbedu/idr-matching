@@ -1,5 +1,10 @@
 #!/bin/python3
 
+import ast
+from turtle import color
+from django.forms import FilePathField
+
+from sklearn.metrics import euclidean_distances
 from bovineMatcher import *
 import methods as use
 import glob
@@ -11,6 +16,9 @@ file3 = './data/S1_I39_1yb.png'
 file2_rot180 = './data/J8_S2_1_rot.png'
 file2_rot90 = './data/J8_S2_1_rot90.png'
 
+fileS1 = 'data/Jersey_SMix/J8/J8_S1_4.png'
+fileS2 = 'data/Jersey_SMix/J8/J8_S2_0.png'
+
 roi1 = './data/J8_S2_0_roi.jpg'
 file4 = 'data/Jersey_S1-b/J11/J11_S1_13.png'
 
@@ -20,26 +28,111 @@ dir3 = 'data/Jersey_SMix'
 
 def main():
 
-    files = glob.glob(dir3+'/*/*.png')
+    # files = glob.glob(dir3+'/*/*.png')
     # files = glob.glob(dir2+'/*/*.png')
     # files = glob.glob(dir3+'/*/*.png')
-    find = []
-    # one for every different animal on dataset
-    while len(find) < 18:
-        rand_indiv = files[random.randint(0, len(files)-1)]
-        name = str(rand_indiv.split('_')[-3])
-        if not any(name in boi for boi in find):
-            find.append(rand_indiv)
-    print(f'find: {find}')
-    avaliar_ransac(files, find)
+
+    # filesS1 = glob.glob(dir3+'/*/*S1*.png')
+    # filesS2 = glob.glob(dir3+'/*/*S2*.png')
+
+    # findS1 = rand_diff_bovine(filesS1, 18)
+    # findS2 = rand_diff_bovine(filesS2, 18)
+
+    # avaliar_ransac(findS1, filesS1, save_path='results/EER/S1_Intra_session.png', compare='S1 intra-session')
+    # avaliar_ransac(findS2, filesS2, save_path='results/EER/S2_Intra_session.png', compare='S2 intra-session')
+    # avaliar_ransac(findS1, filesS2, save_path='results/EER/S1_inter_session.png', compare='S1 to S2 inter-session')
+    # avaliar_ransac(findS2, filesS1, save_path='results/EER/S2_inter_session.png', compare='S2 to S1 inter-session')
+
+    save = False
+    plot_eer('S1 Intra session','results/EER/S1_Intra_session.dat', save)
+    plot_eer('S2 Intra session','results/EER/S2_Intra_session.dat', save)
+    plot_eer('S1 Inter session','results/EER/S1_inter_session.dat', save)
+    plot_eer('S2 Inter session','results/EER/S2_inter_session.dat', save)
+
     # find_most_similar(file4, 'data/Jersey_S1-b')    
     # find_most_similar(file4, 'data/subset')
+    # ransac_matches(fileS1, fileS2)
     # ransac_matches(file1, file3)
     # ransac_matches(file1, file2)
     # ransac_matches(file1, file2_rot90)
     # neigh_hist()
 
-def avaliar_ransac(files, find):
+
+def plot_eer(title, file_path, save):
+    """Plots the False Acceptance and Rejection of a 
+    dataset provided by file_path, where the similarity is stored in
+    line 2 and 5 for same bovine and different bovine respectively
+
+    Args:
+        title (string): title to appear in the plot
+        file_path (string): path to dataset stored in a file as string
+        save (boolean): if True save to file_path but as png, else just vizualize
+    """
+    # lines of interest in saved file
+    same_bov = 2
+    diff_bov = 5
+
+    # read and save data to list from file
+    same_bov_sim, diff_bov_sim = [], []
+    with open(file_path, 'r') as f:
+        for i, line in enumerate(f):
+            if i == same_bov -1:
+                # same_bov_sim = line.strip("][").split(', ') # string of list to list
+                same_bov_sim = ast.literal_eval(line)
+            if i == diff_bov -1:
+                # diff_bov_sim = line.strip("][").split(', ') # string of list to list
+                diff_bov_sim = ast.literal_eval(line)
+
+    # classify
+    far, frr= [], []
+    
+    #range from 0.01 to 1, step = 0.01 (100 values)
+    thresholds = np.arange(0.01, 1.01, 0.01)
+
+    for x in thresholds:
+        # compute FAR
+        bool_far = [boi > x for boi in diff_bov_sim]    # True if impostor bovine is accepted
+        far.append(sum(bool_far)/len(bool_far))         # count and normalize boolean impostor
+        
+        # compute FRR
+        bool_frr = [boi < x for boi in same_bov_sim]    # True if original bovine is rejected
+        frr.append(sum(bool_frr)/len(bool_frr))         # count and normalize boolean original
+
+    # compute EER
+    eer = ()
+    mindist = inf
+    for i, x in enumerate(thresholds):
+        if far[i] == frr[i]:
+            eer = (x, frr[i])
+            break
+        dist = (far[i] - frr[i])*(far[i] - frr[i])
+        if mindist > dist:
+            mindist = dist
+            eer = (x, frr[i]) 
+
+    fig, ax = plt.subplots()
+    
+    ax.plot(thresholds, frr, 'g.-', label='FRR')
+    ax.plot(thresholds, far, 'r.-', label='FAR')
+    # ax.plot(eer[0], eer[1], 'b.', label='EER')
+    ax.set_xticks(np.arange(0, 1.1, 0.1))
+    ax.set_yticks(np.arange(0, 1.1, 0.1))
+    ax.grid(True)
+    ax.legend()
+
+    plt.xlabel('Thresholds')
+    plt.ylabel('Occurences / Total')
+    plt.suptitle(title)
+
+    if save:
+        plt.savefig(file_path.split('.')[0])
+    else:
+        plt.show()
+        
+    plt.close()
+
+
+def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
     """Select a random number (num_indiv) of different individuals from files.
     For each of them, iterates through every one from files (except themselves). 
     Finds the most similar image between the given individual and every one present on the dataset
@@ -54,9 +147,19 @@ def avaliar_ransac(files, find):
     # append results
     for indiv in find:
         print(f'finding match for {indiv}')
-        results = find_most_similar(indiv, files, plot_result=True)
+        results = find_most_similar(indiv, files)
         for i in range(6):
             rsc_data[i] = rsc_data[i] + results[i]
+    
+    # save data to file
+    save = save_path.split('/')[-1].split('.')[0] + '.dat'
+    with open(f'results/EER/{save}', 'w') as f:
+        print(f'similarity of same bovines:\n{rsc_data[4]}\n', file=f)
+        print(f'similarity of different bovines:\n{rsc_data[5]}\n', file=f)
+        print(f'number of inliers of same bovines:\n{rsc_data[0]}\n', file=f)
+        print(f'number of outliers of same bovines:\n{rsc_data[2]}\n', file=f)
+        print(f'number of inliers of different bovines:\n{rsc_data[1]}\n', file=f)
+        print(f'number of outliers of different bovines:\n{rsc_data[3]}\n', file=f)
     
     # count = [same_inl, diff_inl, same_oul, diff_oul]
     # boxplot_ransac(rsc_data, save=True, out_box="Total_Boxplotsimi.png")
@@ -64,29 +167,9 @@ def avaliar_ransac(files, find):
     ax1.boxplot([rsc_data[4], rsc_data[5]])
     ax1.set_xticklabels(["Same bovine", "Different bovine"])
     ax1.set_ylabel("Similarity  (Inlier / Total)")
-    ax1.set_title(f"Similarity of all matches (finds {len(find)} animals in {len(files)-1} images each)")
+    ax1.set_title(f"Similarity of {compare} (finds {len(find)} animals in {len(files)-1} images each)")
     # plt.show()
-    plt.savefig("results/similarity/full_similarity.png")
-
-    # histograma da frequencia de similaridades (precisa?)    
-    # fig2, (ax2, ax3) = plt.subplots(1, 2)
-    # fig2.suptitle(f"find {len(find)} animal in {len(files)-1} images")
-    # # data = [rsc_data[4][i]/len(rsc_data[4]) for i in range(len(rsc_data[4]))]
-    # ax2.plot(rsc_data[4], 'o-')
-    # ax2.set_ylabel("Probability")
-    # ax2.set_xlabel("Similarity (Inlier/ Total)")
-    # ax2.set_title(f"Distibution of same bovie Similarity")
-
-    # # data = [rsc_data[5][i]/len(rsc_data[5]) for i in range(len(rsc_data[4]))]
-    # ax3.plot(rsc_data[5], 'o-')
-    # ax3.set_ylabel("Probability")
-    # ax3.set_xlabel("Similarity (Inlier/ Total)")
-    # ax3.set_title(f"Distibution of different bovie Similarity")
-    # plt.show()
-
-    # save data to file
-    with open('results/similarity/ransac_count.dat', 'w') as f:
-        print(f'{rsc_data}', file=f)
+    plt.savefig(save_path)
 
     
 def find_most_similar(src_file, src_files, plot_result=False):
@@ -108,7 +191,9 @@ def find_most_similar(src_file, src_files, plot_result=False):
     """
     # dont remove from source
     files = src_files.copy()
-    files.remove(src_file)
+    # remove self
+    if src_file in files:
+        files.remove(src_file)
     
     orig = our_matcher(src_file)
     ks, ds = orig.extract_features()
@@ -121,7 +206,7 @@ def find_most_similar(src_file, src_files, plot_result=False):
     src_name = src_file.split('_')[-3]
 
     count = 1
-    for compare in files    :
+    for compare in files:
         print(count, end=' ')
         dst_name = compare.split('/')[-1]
         
@@ -160,22 +245,48 @@ def find_most_similar(src_file, src_files, plot_result=False):
     
     # plot best match
     # dst_name = fit[3].split('/')[-1]
+    compare_name = f"{src_file.split('/')[-1]}_to_{fit[3].split('/')[-1]}"
+    
     our_matcher.draw_ransac_matches(fit[0], fit[1], fit[2], src_file, fit[3],
-                                    save=True, out_img=f'results/similarity/MATCH_{src_file.split("/")[-1]}')
+                                    save=True, 
+    out_img=f'results/sessions/MATCH_{compare_name}')
                                     
     data = [same_inl, diff_inl, same_oul, diff_oul, same_simi, diff_simi]
 
     # plot boxplot
     if plot_result:
         fig, ax = plt.subplots()
-        ax.set_title(f"Similarity between matches for {src_file.split('/')[-1]}")
+        ax.set_title(f"Similarity between matches from {compare_name}")
         ax.boxplot([same_simi, diff_simi])        
         ax.set_ylabel('Similarity (Inlier/Total)')
         ax.set_xticklabels(['Same bovine', 'Different bovine'])
         # plt.show()
-        plt.savefig("results/similarity/simis_"+src_file.split('/')[-1])
+        plt.savefig("results/sessions/simis_"+compare_name)
     
     return data    
+
+    
+def rand_diff_bovine(files, num_indiv):
+    """returns a number of random individuals from files
+
+    Args:
+        files (list): constains strings with path to binary segmented images
+        num_indiv (int): number of different individuals to pick, 
+        must be <= the # of individuals present on files
+
+    Returns:
+        list: string with path to individuals to find
+    """
+    find = []
+    # one for every different animal on dataset
+    while len(find) < num_indiv:
+        rand_indiv = files[random.randint(0, len(files)-1)]
+        name = str(rand_indiv.split('_')[-3])
+        if not any(name in boi for boi in find):
+            find.append(rand_indiv)
+    # print(f'find: {find}')
+    
+    return find
 
 
 def test_graph_gen():
@@ -216,7 +327,7 @@ def neigh_hist():
     Plots a histogram of the number of neighbours 
     of all images on the specified directory
     """
-    files = glob.glob(dir1+'/*/*.png')
+    files = glob.glob(dir3+'/*/*.png')
 
     # #(neigh) p/ 1, 2, 3, 4, < 4 
     data = {1: 0, 2: 0, 3: 0, 4: 0, '> 4':0}
@@ -231,7 +342,9 @@ def neigh_hist():
     #             data['> 4'] += 1
 
     # resultado de rodar em Jersey_S1-b
-    data = {1: 0, 2: 3926, 3: 13739, 4: 584, '> 4': 3}
+    # data = {1: 0, 2: 3926, 3: 13739, 4: 584, '> 4': 3}
+    # resultado de rodar em Jersey_SMix
+    data = {1: 5314, 2: 10345, 3: 47096, 4: 1920, '> 4': 4}
 
     names = ['1', '2', '3', '4', '> 4']    
     values = list(data.values())
@@ -242,7 +355,8 @@ def neigh_hist():
     plt.bar(names, values)
     plt.ylabel('Probability of occuring')
     plt.xlabel('Number of neighbours')
-    plt.show()
+    # plt.show()
+    plt.savefig('results/histogram_neigh.png')
     
     
 def raw_methods():
