@@ -3,8 +3,62 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ntpath
 
-import keypoints as kp
+import bwmorph
 
+# returns array of keypoints to use with opencv
+def img_keypoints(img_file, opencv_kp_format=False, debug=False):
+    """ 
+    Returs a list of pixels, representing a binary image keypoints
+    eg: [[0,0], [x, y]]
+    """
+    img = cv.imread(img_file, 0) # 0 to read image in grayscale mode
+
+    if debug:
+        print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
+        print()
+
+    img_neighbors = bwmorph._neighbors_conv(img==255)
+
+    # adapt list of [x,y] to use with opencv
+    vertices_pixel_list = np.transpose(np.where(img_neighbors>2)) # returning a numpy array
+    vertices_pixel_list = vertices_pixel_list.tolist()
+    
+    if debug:
+        print(f"before clean: {len(vertices_pixel_list)}")
+        for i in range(10):
+            print(vertices_pixel_list[i])
+    
+    # clean coupled pixels
+    for px in vertices_pixel_list:
+        for i in range(-2, 2):
+            for j in range(-2, 2):
+                aux = [px[0] + i, px[1] + j]
+                if aux in vertices_pixel_list and aux != px:
+                    vertices_pixel_list.remove(aux)
+
+    if debug:
+        print(f"after clean: {len(vertices_pixel_list)}")
+        for i in range(10):
+            print(vertices_pixel_list[i])
+
+        
+    # make image w/ highlighted vertices
+    if debug:   
+        img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
+        for px in vertices_pixel_list:
+            # print(px)
+            img_bgr[px[1], px[0]] = (0,0,255)  # red. opencv uses bgr
+        cv.imwrite('vertexestup.png', img_bgr)
+    
+    #CONVERTS LIST OF TUPLE (X,Y) TO KEYPOINTS
+    if(opencv_kp_format):
+        vertices_pixel_tuple = [(y, x) for x, y in vertices_pixel_list]
+        cv_keyPoints = cv.KeyPoint_convert(vertices_pixel_tuple)
+
+        return cv_keyPoints
+    else:
+        return [[y, x] for x, y in vertices_pixel_list]
+    
 
 """source[1] adapted to sift"""
 def sift_compare(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
@@ -18,8 +72,8 @@ def sift_compare(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
-    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
+    keypoints1 = img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     # visualize keypoints calculated
@@ -63,8 +117,8 @@ def kp_euclidean(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
-    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
+    keypoints1 = img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
 
@@ -105,8 +159,8 @@ def knn(img_file1, img_file2, img_roi1, img_roi2, out_match, debug=0):
     roi2 = cv.imread(img_roi2)
 
     # calculates vertices (keypoints) of img_file
-    keypoints1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
-    keypoints2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
+    keypoints1 = img_keypoints(img_file1, opencv_kp_format=True)    
+    keypoints2 = img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     # visualize keypoints calculated
@@ -159,8 +213,8 @@ def flann_compare(img_file1, img_file2, img_roi1):
     sift = cv.SIFT_create()
 
     # calculates vertices (keypoints) of img_file
-    kp1 = kp.img_keypoints(img_file1, opencv_kp_format=True)    
-    kp2 = kp.img_keypoints(img_file2, opencv_kp_format=True)    
+    kp1 = img_keypoints(img_file1, opencv_kp_format=True)    
+    kp2 = img_keypoints(img_file2, opencv_kp_format=True)    
     # keypoints1 = sift.detect(gray, None) # bad, default keypoints
 
     #-- Step 1: Detect the keypoints using SIFT Detector, compute the descriptors
@@ -210,7 +264,7 @@ def blob_visualize(bin_img, img_roi, out_img, useMyKeypts=True ):
     
     # KeyPoints default/extracted from binary Image
     if(useMyKeypts):
-        keypts = kp.img_keypoints(bin_img, opencv_kp_format=True)
+        keypts = img_keypoints(bin_img, opencv_kp_format=True)
         keypts, descript = sift.compute(img, keypts)
     else:
         keypts, descript = sift.detectAndCompute(gray, None)

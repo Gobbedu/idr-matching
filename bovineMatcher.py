@@ -27,9 +27,9 @@ class our_matcher:
             binary_img (string): binary image file from region of interest
         """
         self.bin_img = binary_img
-        self.descriptor = list()
-        self.keypoints = list()
-        self.matches = list()
+        self.descriptor = []
+        self.keypoints = []
+        self.matches = []
   
     
     def extract_features(self):
@@ -80,7 +80,7 @@ class our_matcher:
 
     def match_features(descr1, descr2):
         """Returns a list of sorted matches composed of the minimum Euclidean distance of 
-        the descriptor vectors and a tuple of the descriptors
+        descriptor vectors and a tuple of the descriptors
 
         Returns:
             list: list of pair of coordinates from descriptor1 and descriptor2 [[keypoints1], [keytpoins2]]
@@ -157,9 +157,8 @@ class our_matcher:
         name_src = file_img_orig.split('/')[-1]
         name_dst = file_img_comp.split('/')[-1]
         
-        inlier_idxs = np.nonzero(inliers)[0]
-
         outliers = inliers == False
+        inlier_idxs = np.nonzero(inliers)[0]
         outlier_idxs = np.nonzero(outliers)[0]
 
         # visualize correspondence

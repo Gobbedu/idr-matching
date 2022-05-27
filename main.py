@@ -1,14 +1,11 @@
 #!/bin/python3
 
-import ast
-from turtle import color
-from django.forms import FilePathField
-
-from sklearn.metrics import euclidean_distances
 from bovineMatcher import *
 import methods as use
+import ast
 import glob
 import random
+
 
 file1 = './data/J8_S2_0.png'
 file2 = './data/J8_S2_1.png'
@@ -27,11 +24,6 @@ dir2 = 'data/Jersey_S1-b'
 dir3 = 'data/Jersey_SMix'
 
 def main():
-
-    # files = glob.glob(dir3+'/*/*.png')
-    # files = glob.glob(dir2+'/*/*.png')
-    # files = glob.glob(dir3+'/*/*.png')
-
     # filesS1 = glob.glob(dir3+'/*/*S1*.png')
     # filesS2 = glob.glob(dir3+'/*/*S2*.png')
 
@@ -49,8 +41,6 @@ def main():
     plot_eer('S1 Inter session','results/EER/S1_inter_session.dat', save)
     plot_eer('S2 Inter session','results/EER/S2_inter_session.dat', save)
 
-    # find_most_similar(file4, 'data/Jersey_S1-b')    
-    # find_most_similar(file4, 'data/subset')
     # ransac_matches(fileS1, fileS2)
     # ransac_matches(file1, file3)
     # ransac_matches(file1, file2)
@@ -59,7 +49,7 @@ def main():
 
 
 def plot_eer(title, file_path, save):
-    """Plots the False Acceptance and Rejection of a 
+    """Plots the False Acceptance & Rejection of a 
     dataset provided by file_path, where the similarity is stored in
     line 2 and 5 for same bovine and different bovine respectively
 
@@ -99,22 +89,12 @@ def plot_eer(title, file_path, save):
         frr.append(sum(bool_frr)/len(bool_frr))         # count and normalize boolean original
 
     # compute EER
-    eer = ()
-    mindist = inf
-    for i, x in enumerate(thresholds):
-        if far[i] == frr[i]:
-            eer = (x, frr[i])
-            break
-        dist = (far[i] - frr[i])*(far[i] - frr[i])
-        if mindist > dist:
-            mindist = dist
-            eer = (x, frr[i]) 
+    # values do not equal, intersection can be estimated visualy 
 
+    # plot results
     fig, ax = plt.subplots()
-    
     ax.plot(thresholds, frr, 'g.-', label='FRR')
     ax.plot(thresholds, far, 'r.-', label='FAR')
-    # ax.plot(eer[0], eer[1], 'b.', label='EER')
     ax.set_xticks(np.arange(0, 1.1, 0.1))
     ax.set_yticks(np.arange(0, 1.1, 0.1))
     ax.grid(True)
@@ -383,73 +363,5 @@ def raw_methods():
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
     
-def boxplot_ransac(data, save=False, out_box='aux.png'):
-    """Plots a  boxplot for provided data, and saves image if 
-    save is True at out_box path
-
-    Args:
-        data (list): list of [same_inl, diff_inl, same_oul, diff_oul] from find_most_similar or avaliar_ransac
-        save (bool, optional): if True, saves output image to local file. Defaults to False.
-        out_box (str, optional): Define the desired path for saved images. Defaults to 'aux.png'.
-    """
-    fig = plt.figure(figsize =(10, 7))
-    ax = fig.add_subplot(111)
-        
-    # Creating axes instance
-    bp = ax.boxplot(data, patch_artist = True,
-                    notch ='True', vert = 0)
-    
-    colors = ['#00FF00', '#00FF00',
-            '#FF0000', '#FF0000']
-    
-    for patch, color in zip(bp['boxes'], colors):
-        patch.set_facecolor(color)
-    
-    # changing color and linewidth of
-    # whiskers
-    for whisker in bp['whiskers']:
-        whisker.set(color ='#8B008B',
-                    linewidth = 1.5,
-                    linestyle =":")
-    
-    # changing color and linewidth of
-    # caps
-    for cap in bp['caps']:
-        cap.set(color ='#8B008B',
-                linewidth = 2)
-    
-    # changing color and linewidth of
-    # medians
-    for median in bp['medians']:
-        median.set(color ='red',
-                linewidth = 3)
-    
-    # changing style of fliers
-    for flier in bp['fliers']:
-        flier.set(marker ='D',
-                color ='#e7298a',
-                alpha = 0.5)
-        
-    # x-axis labels
-    ax.set_yticklabels(['same inliers', 'diff inliers',
-                        'same outliers', 'diff outliers'])
-    
-    # Adding title
-    plt.title("Total number of filtered matches")
-    
-    # Removing top axes and right axes
-    # ticks
-    ax.get_xaxis().tick_bottom()
-    ax.get_yaxis().tick_left()
-        
-    # show plot
-    if save:
-        plt.savefig(out_box)
-    else:
-        plt.show()
-        
-    plt.close()
-     
-
 if __name__ == "__main__":
     main()
