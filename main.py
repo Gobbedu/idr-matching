@@ -355,7 +355,7 @@ def raw_methods():
     # use.sift_compare(file1, file1, roi1, roi1, './results/sample03.png')
     # use.knn(file1, file2, roi1, roi2, './aux.png')
     # use.blob_visualize(file1, roi1, "OurKeyptsSift.png", True)
-    use.blob_visualize(file1, roi1, "defaultSift.png", False)
+    # use.blob_visualize(file1, roi1, "defaultSift.png", False)
     # use.blob_visualize(file2, roi2, "defaultSift1.png", False)
     # use.flann_compare(img_file1, img_file2, img_roi1) # does not work
     
