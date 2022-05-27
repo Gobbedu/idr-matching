@@ -7,16 +7,13 @@ import glob
 import random
 
 
-file1 = './data/J8_S2_0.png'
-file2 = './data/J8_S2_1.png'
-file3 = './data/S1_I39_1yb.png'
-file2_rot180 = './data/J8_S2_1_rot.png'
-file2_rot90 = './data/J8_S2_1_rot90.png'
+file1 = './data/Jersey_SMix/J8/J8_S2_0.png'
+file2 = './data/Jersey_SMix/J8/J8_S2_1.png'
+file3 = './data/Jersey_SMix/J64/J64_S2_1.png'
 
 fileS1 = 'data/Jersey_SMix/J8/J8_S1_4.png'
 fileS2 = 'data/Jersey_SMix/J8/J8_S2_0.png'
 
-roi1 = './data/J8_S2_0_roi.jpg'
 file4 = 'data/Jersey_S1-b/J11/J11_S1_13.png'
 
 dir1 = 'data/subset'
