@@ -30,8 +30,10 @@ class our_matcher:
         self.descriptor = []
         self.keypoints = []
         self.matches = []
+        
+        self.prob_badneigh = 0
   
-    
+    # @cache_extracted # TODO
     def extract_features(self):
         """Reorder descriptor from gen_graph() in a list
 
@@ -74,6 +76,15 @@ class our_matcher:
                         
                     V = cx + cy + d + a
                     self.descriptor.append(V)
+            
+            # count number of neighbours != 3
+            elif len(raw_descriptor[key]['neigh']) < 3:
+            # else:
+                self.prob_badneigh += 1
+        # print(self.prob_badneigh)
+                
+        # normalize
+        self.prob_badneigh /= len(raw_descriptor)
                     
         return self.keypoints, self.descriptor
 

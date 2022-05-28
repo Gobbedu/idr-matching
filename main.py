@@ -32,17 +32,50 @@ def main():
     # avaliar_ransac(findS1, filesS2, save_path='results/EER/S1_inter_session.png', compare='S1 to S2 inter-session')
     # avaliar_ransac(findS2, filesS1, save_path='results/EER/S2_inter_session.png', compare='S2 to S1 inter-session')
 
-    save = False
-    plot_eer('S1 Intra session','results/EER/S1_Intra_session.dat', save)
-    plot_eer('S2 Intra session','results/EER/S2_Intra_session.dat', save)
-    plot_eer('S1 Inter session','results/EER/S1_inter_session.dat', save)
-    plot_eer('S2 Inter session','results/EER/S2_inter_session.dat', save)
+    # save = False
+    # plot_eer('S1 Intra session','results/EER/S1_Intra_session.dat', save)
+    # plot_eer('S2 Intra session','results/EER/S2_Intra_session.dat', save)
+    # plot_eer('S1 Inter session','results/EER/S1_inter_session.dat', save)
+    # plot_eer('S2 Inter session','results/EER/S2_inter_session.dat', save)
+
+    badness()
 
     # ransac_matches(fileS1, fileS2)
     # ransac_matches(file1, file3)
     # ransac_matches(file1, file2)
     # ransac_matches(file1, file2_rot90)
     # neigh_hist()
+
+
+def badness():
+    session1 = glob.glob(dir3+'/*/*S1*.png')
+    session2 = glob.glob(dir3+'/*/*S2*.png')
+
+    badness1, badness2 = [], []
+    for file in session1:
+        tmp = our_matcher(file)
+        tmp.extract_features()
+        badness1.append(tmp.prob_badneigh)
+
+    for file in session2:
+        tmp = our_matcher(file)
+        tmp.extract_features()
+        badness2.append(tmp.prob_badneigh)
+
+    # normalize y value [0..1]
+
+    print()
+    print(badness1)
+    print()
+    print(badness2)
+
+    fig, ax = plt.subplots()
+    ax.boxplot([badness1, badness2])
+    ax.set_xticklabels(["Session 1", "Session 2"])
+    ax.set_ylabel('Ruim / Total')
+    plt.suptitle("Distribution of Bad vertices Probability")
+    # plt.show()
+    plt.savefig('badness<3.png')
 
 
 def plot_eer(title, file_path, save):
@@ -126,7 +159,7 @@ def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
         print(f'finding match for {indiv}')
         results = find_most_similar(indiv, files)
         for i in range(6):
-            rsc_data[i] = rsc_data[i] + results[i]
+            rsc_data[i] = rsc_data[i] + results[i]      # APPEND LISTS
     
     # save data to file
     save = save_path.split('/')[-1].split('.')[0] + '.dat'
