@@ -102,7 +102,35 @@ def print_vertexes(vertexes):
     for i in vertexes:
         print_vertex(vertexes, i)
 
+def cache_graph(func):
+    """
+    A decorator to cache/memoize generated graphs
+    
+    Parameters
+    ----------
+    func: callable
+      The function being decorated
+    
+    Returns
+      func: callable
+        The decorated function
+    """
+    # Create a dictionary to store results
+    cache = {}  # this will be stored in closure because it is nonlocal
+    
+    def wrapper(*args, **kwargs):
+        # Unpack args and kwargs intp a tuple to be used as dict keys
+        keys = (tuple(args) + tuple(kwargs.keys()))
+        # If not seen before
+        if keys not in cache:
+            # Store them in cache
+            cache[keys] = func(*args, **kwargs)
+        # Else return the recorded result
+        return cache[keys]
+    
+    return wrapper
 
+@cache_graph
 def gen_graph(img_path):
     img = cv2.imread(img_path, 0)
     print("shape: %s  |  max: %d  |  min: %d | path: %s" % (img.shape, img.max(), img.min(), img_path))
