@@ -15,81 +15,55 @@ from math import inf, sqrt
 from gen_graph import gen_graph
 
 
-class our_matcher:
+class idr_Features:
     """
-    Feature extracting class for bovine descriptors
-    TODO comments
+    Feature extracting and processing class for bovine segmented images
     """
     
     def __init__(self, binary_img):
-        """Constructor
-            This method initializes the descriptor and matcher
-            binary_img (string): binary image file from region of interest
-        """
-        self.bin_img = binary_img
-        self.descriptor = []
-        self.keypoints = []
-        self.matches = []
+        """Constructor extracts features from binary image
         
-        self.prob_badneigh = 0
-  
-    # @cache_extracted # TODO
-    def extract_features(self):
-        """Reorder descriptor from gen_graph() in a list
-
-        Returns:
-            keypoints (list):  
-
+            binary_img (string): binary image file from region of interest
+            
+            Reorder descriptor from gen_graph() in a list
+            keypoints (list):  [x, y]
             descriptor (list): new descriptor of image with each item from the list as another list with 
-            [c0x, c0y, d1, d2, d3, a1, a2, a3]
+            [d1, d2, d3, a1, a2, a3]
             where   
             
-            c = pixel coord of vertices,
             d = distance for neighbour vertices,
             a = angle for neighbour vertices  
         """
-        # self.keypoints = img_keypoints(self.bin_img)
+        raw_descriptor = gen_graph(binary_img)
+
+        self.features = {}
+        # self.descriptor = []
+        # self.keypoints = []
+
+        self.len_raw = len(raw_descriptor)
+        self.bin_img = binary_img
+        self.prob_badneigh = 0
+        self.prob_len3 = 0
         
-        raw_descriptor = gen_graph(self.bin_img)
-        # print(f"raw[0]: {raw_descriptor[list(raw_descriptor)[0]]}")
         # RESHAPE DESCRIPTOR
         for key in raw_descriptor:
             if len(raw_descriptor[key]['neigh']) == 3:
-                self.keypoints.append(raw_descriptor[key]['center'])
-                # print(raw_descriptor[key])
-                cx, cy , d, a = [], [], [], []
-                
-                cx.append(raw_descriptor[key]['center'][0])
-                cy.append(raw_descriptor[key]['center'][1])
-                # print("pertence? ", cx + cy in self.keypoints)
-                if cx + cy in self.keypoints:
-                    # NAO ADICIONA CENTER DOS VIZINHOS NO DESCRITOR
-                    # for neighkey in raw_descriptor[key]['neigh']:
-                    #     # print("neigh c:", raw_descriptor[neighkey]['center'])
-                    #     cx.append(raw_descriptor[neighkey]['center'][0])
-                    #     cy.append(raw_descriptor[neighkey]['center'][1])
-                    for i in range(3):
-                        # print("this a:", raw_descriptor[key]['ang'])
-                        # print("this d:", raw_descriptor[key]['dist'])
-                        d.append(raw_descriptor[key]['dist'][i])
-                        a.append(raw_descriptor[key]['ang'][i])
-                        
-                    V = cx + cy + d + a
-                    self.descriptor.append(V)
-            
-            # count number of neighbours != 3
+                # self.keypoints.append(raw_descriptor[key]['center'])
+                # self.descriptor.append(raw_descriptor[key]['dist'] + raw_descriptor[key]['ang'])
+                self.features[tuple(raw_descriptor[key]['center'])] = raw_descriptor[key]['dist'] + raw_descriptor[key]['ang']
+
+            # count number of bad neighbours
             elif len(raw_descriptor[key]['neigh']) < 3:
-            # else:
                 self.prob_badneigh += 1
-        # print(self.prob_badneigh)
-                
+        
         # normalize
-        self.prob_badneigh /= len(raw_descriptor)
-                    
-        return self.keypoints, self.descriptor
+        self.prob_badneigh /= self.len_raw
+        self.prob_len3 = len(self.features)/self.len_raw
 
 
-    def match_features(descr1, descr2):
+class idr_Matcher:
+    """Matches two descriptors extracted by idr_Features"""
+    def match(Features1, Features2):
         """Returns a list of sorted matches composed of the minimum Euclidean distance of 
         descriptor vectors and a tuple of the descriptors
 
@@ -98,35 +72,43 @@ class our_matcher:
             [[x1, y1], [x2, y2]], [...]
         """
 
+        dict1 = Features1.features
+        dict2 = Features2.features
+        
         # descriptor = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
         # weights = [1 for i in range(len(descr1[0]))]
         # weights = [.5, .5, 1, 1, 1, 2, 1, 1]
-        weights = [1, 1, 1, 1, 1, 1, 1, 1]
+        # weights = np.full(6, 1)
         matches = []
         
+        # feature = {keypoint: descriptor}
+        # size_descr = len(dict1[list(dict1.values()[0])])
+        size_descr = len(list(dict1.values())[0])
+        
         # DMatch Euclidean distance with weights
-        for d1 in descr1:
+        for kp1 in dict1:
             mini = inf
             smol = []
-            for d2 in descr2:
+            for kp2 in dict2:
                 sum = 0
-                for i in range(len(d1)):
-                    sum += weights[i]*(d1[i] - d2[i])*(d1[i] - d2[i])
-                euclidean = sqrt(sum)/8
+                for i in range(size_descr):
+                    sum += (dict1[kp1][i] - dict2[kp2][i])**2
+                euclidean = sqrt(sum)
+                # euclidean = sqrt(sum)/size_descr
                 
                 if euclidean < mini:
                     mini = euclidean
-                    smol = d2
+                    smol = kp2
                     
             if smol: # not empty
                 # [vertice1, vertice2]
-                matches.append([[d1[0], d1[1]], [smol[0], smol[1]]])
+                matches.append([list(kp1), list(smol)])
                 
         # matches = sorted(matches, key=lambda x: x[0]) # sort by euclidean distance  
         return matches
 
 
-    def ransac_matches(matches):
+    def ransac(matches):
         """separates data in matches with ransac into inliers and outliers
         returns (N,) array of inliers classified as True,
         together with a list of coordinates from source image (src) and compare image (cmp)
@@ -139,12 +121,12 @@ class our_matcher:
             inliers, src, cmp: whose types are respectively -> (N,) array ; list ; list 
         """
        
-        # split from matches source and compared 
+        # split from matches source coordinates and compare coordinates
         src = []
         cmp = []
-        for coord in matches:
-            src.append(coord[0])
-            cmp.append(coord[1])
+        for orig, comp in matches:
+            src.append(orig)
+            cmp.append(comp)
         src = np.array(src)
         cmp = np.array(cmp)
         
@@ -153,7 +135,7 @@ class our_matcher:
         # robustly estimate transform model with RANSAC
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
         model_robust, inliers = ransac((src, cmp), skit.SimilarityTransform, min_samples=3,
-                                    residual_threshold=5, max_trials=500)
+                                    residual_threshold=10, max_trials=500)
         
         # outliers are the boolean oposite of inliers
         # outliers = inliers == False
@@ -161,7 +143,8 @@ class our_matcher:
         return inliers, src, cmp
 
 
-    def draw_ransac_matches(inliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):
+    def draw_matches(inliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):
+        """Requires running ransac on matches to draw comparison"""
         img_orig = np.asarray(cv2.imread(file_img_orig))
         img_comp = np.asarray(cv2.imread(file_img_comp))
         

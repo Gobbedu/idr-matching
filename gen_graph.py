@@ -133,7 +133,7 @@ def cache_graph(func):
 @cache_graph
 def gen_graph(img_path):
     img = cv2.imread(img_path, 0)
-    print("shape: %s  |  max: %d  |  min: %d | path: %s" % (img.shape, img.max(), img.min(), img_path))
+    # print("shape: %s  |  max: %d  |  min: %d | path: %s" % (img.shape, img.max(), img.min(), img_path))
 
     img_neighbors = bwmorph._neighbors_conv(img==255)
 
