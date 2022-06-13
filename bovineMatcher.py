@@ -11,7 +11,7 @@ from skimage.measure import ransac
 from skimage.feature import plot_matches
 import skimage.transform as skit
 
-from math import inf, sqrt
+from math import inf, sqrt, radians
 from gen_graph import gen_graph
 
 
@@ -19,46 +19,44 @@ class idr_Features:
     """
     Feature extracting and processing class for bovine segmented images
     """
-    
+
     def __init__(self, binary_img):
-        """Constructor extracts features from binary image
+        """Reshape descriptor from binary image with gen_graph
+
+        Args:
+            binary_img (string): path to segmented image from bovine
         
-            binary_img (string): binary image file from region of interest
-            
-            Reorder descriptor from gen_graph() in a list
-            keypoints (list):  [x, y]
-            descriptor (list): new descriptor of image with each item from the list as another list with 
-            [d1, d2, d3, a1, a2, a3]
-            where   
-            
-            d = distance for neighbour vertices,
-            a = angle for neighbour vertices  
+        Returns:
+            self.features (dict): {keypoints : descriptor}
+            where keypoints (tuple):  (x, y)
+            descriptor (list): [d1, d2, d3, a1, a2, a3] d:distance, a:angulo
         """
         raw_descriptor = gen_graph(binary_img)
-
-        self.features = {}
-        # self.descriptor = []
-        # self.keypoints = []
-
         self.len_raw = len(raw_descriptor)
         self.bin_img = binary_img
+
+        self.features = {}
+        self.avg_dist = 0
+
         self.prob_badneigh = 0
-        self.prob_len3 = 0
         
         # RESHAPE DESCRIPTOR
         for key in raw_descriptor:
             if len(raw_descriptor[key]['neigh']) == 3:
-                # self.keypoints.append(raw_descriptor[key]['center'])
-                # self.descriptor.append(raw_descriptor[key]['dist'] + raw_descriptor[key]['ang'])
                 self.features[tuple(raw_descriptor[key]['center'])] = raw_descriptor[key]['dist'] + raw_descriptor[key]['ang']
+                self.avg_dist = sum(raw_descriptor[key]['dist'])
 
             # count number of bad neighbours
             elif len(raw_descriptor[key]['neigh']) < 3:
                 self.prob_badneigh += 1
         
         # normalize
+        self.avg_dist /= len(self.features)
         self.prob_badneigh /= self.len_raw
-        self.prob_len3 = len(self.features)/self.len_raw
+        
+        # NORMALIZE DISTANCE & DEGREES -> RADIANS
+        for key in self.features:                   # dist / avg_dist                               # Degrees to radians
+            self.features[key] = list(map(lambda x: x/self.avg_dist, self.features[key][:3])) + list(map(lambda x: radians(x), self.features[key][3:]))
 
 
 class idr_Matcher:
@@ -75,17 +73,24 @@ class idr_Matcher:
         dict1 = Features1.features
         dict2 = Features2.features
         
-        # descriptor = [c0x, c0y, d1, d2, d3, a1, a2, a3]\n
-        # weights = [1 for i in range(len(descr1[0]))]
-        # weights = [.5, .5, 1, 1, 1, 2, 1, 1]
-        # weights = np.full(6, 1)
         matches = []
         
+        # des1 = np.asarray(list(dict1.values()), np.float32)
+        # des2 = np.asarray(list(dict2.values()), np.float32)
+        # FLANN parameters
+        # FLANN_INDEX_KDTREE = 1
+        # index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+        # search_params = dict(checks=50)   # or pass empty dictionary
+        # flann = cv2.FlannBasedMatcher(index_params,search_params)
+        # matches = flann.knnMatch(des1,des2,k=2)
+        
+        # for src, dst in matches:
+        #     print(src.imgIdx, dst.imgIdx)
+                
         # feature = {keypoint: descriptor}
         # size_descr = len(dict1[list(dict1.values()[0])])
         size_descr = len(list(dict1.values())[0])
-        
-        # DMatch Euclidean distance with weights
+        # DMatch Euclidean distance without weights
         for kp1 in dict1:
             mini = inf
             smol = []
@@ -95,6 +100,7 @@ class idr_Matcher:
                     sum += (dict1[kp1][i] - dict2[kp2][i])**2
                 euclidean = sqrt(sum)
                 # euclidean = sqrt(sum)/size_descr
+                # euclidean = sqrt(np.linalg.norm(dict1[kp1])**2 + np.linalg.norm(dict2[kp2])**2)
                 
                 if euclidean < mini:
                     mini = euclidean
@@ -135,7 +141,7 @@ class idr_Matcher:
         # robustly estimate transform model with RANSAC
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
         model_robust, inliers = ransac((src, cmp), skit.SimilarityTransform, min_samples=3,
-                                    residual_threshold=10, max_trials=500)
+                                    residual_threshold=50, max_trials=500)
         
         # outliers are the boolean oposite of inliers
         # outliers = inliers == False

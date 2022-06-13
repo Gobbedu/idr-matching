@@ -20,49 +20,45 @@ dir1 = 'data/subset'
 dir2 = 'data/Jersey_S1-b'
 dir3 = 'data/Jersey_SMix'
 
+def amain():
+    a = idr_Features(file1)
+    b = idr_Features(file2)
+
+    print(a.features[list(a.features.keys())[0]])
+    print(b.features[list(b.features.keys())[0]])
+
 def main():
     animals = glob(dir3+'/*/*.png')
     
     filesS1 = [file for file in animals if "S1" in file]
     filesS2 = [file for file in animals if "S2" in file]
     
-    print(f' len S1 {len(filesS1)}, len S2 {len(filesS2)}')
+    # print(f'len S1 {len(filesS1)}, len S2 {len(filesS2)}')
 
     # only files with probab of bad vertice < 25% (w/ p = .25 only 28/164 images pass on S2 )
-    filesS1, data1 = currate(filesS1, 0.3)
-    filesS2, data2 = currate(filesS2, 0.3)
+    # filesS1, data1 = currate(filesS1, 0.25)
+    # filesS2, data2 = currate(filesS2, 0.25)
 
-    print(f' len currated S1 {len(filesS1)}, len currated S2 {len(filesS2)}')
+    # print(f'len currated S1 {len(filesS1)}, len currated S2 {len(filesS2)}')
 
     findS1 = rand_bovines(filesS1)
     findS2 = rand_bovines(filesS2)
 
-    print(f' len findS1 {len(findS1)}, len findS2 {len(findS2)}')
+    # print(f'len findS1 {len(findS1)}, len findS2 {len(findS2)}')
 
     # test = idr_Features(animals[0])
     # find_most_similar(findS1, filesS1[:10])
 
-    avaliar_ransac(findS1, filesS1, save_path='results/EER/S1_intra.png', compare='S1 intra-session')
-    avaliar_ransac(findS2, filesS2, save_path='results/EER/S2_intra.png', compare='S2 intra-session')
-    avaliar_ransac(findS1, filesS2, save_path='results/EER/S1_inter.png', compare='S1 to S2 inter-session')
-    avaliar_ransac(findS2, filesS1, save_path='results/EER/S2_inter.png', compare='S2 to S1 inter-session')
+    avaliar_ransac(findS1, filesS1, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_intra_f0_r5.png', compare='S1 intra-session')
+    avaliar_ransac(findS2, filesS2, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_intra_f0_r5.png', compare='S2 intra-session')
+    avaliar_ransac(findS1, filesS2, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_inter_f0_r5.png', compare='S1 to S2 inter-session')
+    avaliar_ransac(findS2, filesS1, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_inter_f0_r5.png', compare='S2 to S1 inter-session')
 
     save = False
-    plot_eer('S1 Intra session','results/EER/S1_intra.dat', save)
-    plot_eer('S2 Intra session','results/EER/S2_intra.dat', save)
-    plot_eer('S1 Inter session','results/EER/S1_inter.dat', save)
-    plot_eer('S2 Inter session','results/EER/S2_inter.dat', save)
-    
-    print('currate data S1, S2 :')
-    print(data1)
-    print(data2)
-
-    # ransac_matches(fileS1, fileS2)
-    # ransac_matches(file1, file3)
-    # ransac_matches(file1, file2)
-    # ransac_matches(file1, file2_rot90)
-    # neigh_hist()
-    
+    plot_eer('S1 Intra session','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_intra_f0_r5.dat', save)
+    plot_eer('S2 Intra session','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_intra_f0_r5.dat', save)
+    plot_eer('find S1 inter S2','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_inter_f0_r5.dat', save)
+    plot_eer('find S2 inter S1','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_inter_f0_r5.dat', save)
     
 def plot_roc(title, file_path, save):
     """Plots the False Acceptance & Rejection of a 
@@ -326,7 +322,7 @@ def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
     
     # append results
     for i, indiv in enumerate(find, start=1):
-        print(f'\r{i}:{len(find)} finding match for {indiv}', end=10*' ')
+        print(f'\r{i}:{len(find)} finding match for {indiv}', end=20*' ')
         results = find_most_similar(indiv, files)
         for i in range(6):
             rsc_data[i] = rsc_data[i] + results[i]      # APPEND LISTS
