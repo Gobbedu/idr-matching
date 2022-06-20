@@ -44,7 +44,7 @@ class idr_Features:
         for key in raw_descriptor:
             if len(raw_descriptor[key]['neigh']) == 3:
                 self.features[tuple(raw_descriptor[key]['center'])] = raw_descriptor[key]['dist'] + raw_descriptor[key]['ang']
-                self.avg_dist = sum(raw_descriptor[key]['dist'])
+                self.avg_dist += sum(raw_descriptor[key]['dist'])
 
             # count number of bad neighbours
             elif len(raw_descriptor[key]['neigh']) < 3:
@@ -56,7 +56,7 @@ class idr_Features:
         
         # NORMALIZE DISTANCE & DEGREES -> RADIANS
         for key in self.features:                   # dist / avg_dist                               # Degrees to radians
-            self.features[key] = list(map(lambda x: x/self.avg_dist, self.features[key][:3])) + list(map(lambda x: radians(x), self.features[key][3:]))
+            self.features[key] = list(map(lambda x: x/self.avg_dist, self.features[key][:3])) + list(map(lambda x: (x + 360)%360, self.features[key][3:]))
 
 
 class idr_Matcher:
@@ -141,7 +141,7 @@ class idr_Matcher:
         # robustly estimate transform model with RANSAC
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
         model_robust, inliers = ransac((src, cmp), skit.SimilarityTransform, min_samples=3,
-                                    residual_threshold=50, max_trials=500)
+                                    residual_threshold=10, max_trials=500)
         
         # outliers are the boolean oposite of inliers
         # outliers = inliers == False

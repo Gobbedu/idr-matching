@@ -1,5 +1,6 @@
 #!/bin/python3
 
+from re import T
 from bovineMatcher import *
 import methods as use
 import ast
@@ -48,17 +49,23 @@ def main():
 
     # test = idr_Features(animals[0])
     # find_most_similar(findS1, filesS1[:10])
+    
+    s1intra = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S1_intra_f0_r10"
+    s2intra = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S2_intra_f0_r10"
+    s1inter = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S1_inter_f0_r10"
+    s2inter = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S2_inter_f0_r10"
+    
+    
+    avaliar_ransac(findS1, filesS1, save_path=s1intra, compare='S1 intra-session')
+    avaliar_ransac(findS2, filesS2, save_path=s2intra, compare='S2 intra-session')
+    avaliar_ransac(findS1, filesS2, save_path=s1inter, compare='S1 to S2 inter-session')
+    avaliar_ransac(findS2, filesS1, save_path=s2inter, compare='S2 to S1 inter-session')
 
-    avaliar_ransac(findS1, filesS1, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_intra_f0_r5.png', compare='S1 intra-session')
-    avaliar_ransac(findS2, filesS2, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_intra_f0_r5.png', compare='S2 intra-session')
-    avaliar_ransac(findS1, filesS2, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_inter_f0_r5.png', compare='S1 to S2 inter-session')
-    avaliar_ransac(findS2, filesS1, save_path='results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_inter_f0_r5.png', compare='S2 to S1 inter-session')
-
-    save = False
-    plot_eer('S1 Intra session','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_intra_f0_r5.dat', save)
-    plot_eer('S2 Intra session','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_intra_f0_r5.dat', save)
-    plot_eer('find S1 inter S2','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S1_inter_f0_r5.dat', save)
-    plot_eer('find S2 inter S1','results/EER/dist÷avg+radians(ang)/noFilter_Ransac50/S2_inter_f0_r5.dat', save)
+    save = True
+    plot_eer('S1 Intra session', s1intra, save)
+    plot_eer('S2 Intra session', s2intra, save)
+    plot_eer('find S1 inter S2', s1inter, save)
+    plot_eer('find S2 inter S1', s2inter, save)
     
 def plot_roc(title, file_path, save):
     """Plots the False Acceptance & Rejection of a 
@@ -257,7 +264,7 @@ def plot_eer(title, file_path, save):
 
     # read and save data to list from file
     same_bov_sim, diff_bov_sim = [], []
-    with open(file_path, 'r') as f:
+    with open(file_path+'.dat', 'r') as f:
         for i, line in enumerate(f):
             if i == same_bov -1:
                 # same_bov_sim = line.strip("][").split(', ') # string of list to list
@@ -288,7 +295,9 @@ def plot_eer(title, file_path, save):
     # values do not equal, intersection can be estimated visualy 
 
     # plot results
-    fig, ax = plt.subplots()
+    # plt.rcParams["figure.figsize"] = (20,10)
+    fig, ax = plt.subplots(figsize=(14,7), dpi=150)
+    # fig.set_dpi(100)
     ax.plot(thresholds, frr, 'g.-', label='FRR')
     ax.plot(thresholds, far, 'r.-', label='FAR')
     ax.set_xticks(np.arange(0, 1.05, 0.05))
@@ -301,7 +310,7 @@ def plot_eer(title, file_path, save):
     plt.suptitle(title)
 
     if save:
-        plt.savefig(file_path.split('.')[0]+'haha')
+        plt.savefig(file_path)
     else:
         plt.show()
         
@@ -329,8 +338,7 @@ def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
     print()
     
     # save data to file
-    save = save_path.split('/')[-1].split('.')[0] + '.dat'
-    with open(f'results/EER/{save}', 'w') as f:
+    with open(f'{save_path}.dat', 'w') as f:
         print(f'similarity of same bovines:\n{rsc_data[4]}\n', file=f)
         print(f'similarity of different bovines:\n{rsc_data[5]}\n', file=f)
         print(f'number of inliers of same bovines:\n{rsc_data[0]}\n', file=f)
@@ -346,7 +354,7 @@ def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
     ax1.set_ylabel("Similarity  (Inlier / Total)")
     ax1.set_title(f"Similarity of {compare} (finds {len(find)} animals in {len(files)-1} images each)")
     # plt.show()
-    plt.savefig(save_path)
+    plt.savefig(save_path+'.png')
 
     
 def find_most_similar(src_file, src_files, plot_result=False):
