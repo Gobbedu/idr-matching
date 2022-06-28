@@ -16,7 +16,7 @@ import desc
 import dist_transform
 
 
-IMG_PATH = 'data/2-seg/Jersey_S1-b/J102/J102_S1_13.png'
+IMG_PATH = 'data/2-seg/Jersey_SMix/J8/J8_S2_0.png'
 # './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 9.9
@@ -217,6 +217,8 @@ def remove_isolated_vertexes(vertexes):
             for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
                 vertexes_to_check.append(j)
             remove_vertex(vertexes, vertexes_to_remove[0])
+            if vertexes_to_remove[0] in vertexes_to_check:  # after removing the vertex, we must make sure it's no longer referenced in our to-check list
+                vertexes_to_check.remove(vertexes_to_remove[0])
             removal_counter += 1
             vertexes_to_remove.pop(0)
 
