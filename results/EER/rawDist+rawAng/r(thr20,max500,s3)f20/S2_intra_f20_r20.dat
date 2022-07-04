@@ -1,0 +1,18 @@
+similarity of same bovines:
+[0.3988439306358382]
+
+similarity of different bovines:
+[0.039735099337748346, 0.052980132450331126, 0.028901734104046242]
+
+number of inliers of same bovines:
+[69]
+
+number of outliers of same bovines:
+[104]
+
+number of inliers of different bovines:
+[6, 8, 5]
+
+number of outliers of different bovines:
+[145, 143, 168]
+

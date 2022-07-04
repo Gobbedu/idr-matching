@@ -12,7 +12,13 @@ from skimage.feature import plot_matches
 import skimage.transform as skit
 
 from math import inf, sqrt, radians
-from gen_graph import gen_graph
+from graph import graph
+from gen_graph_old import gen_graph
+
+
+# RANSAC_MIN_SAMPLES = 3
+# RANSAC_MAX_TRIALS = 500
+# RANSAC_RESIDUAL_THRESHOLD = 20
 
 
 class idr_Features:
@@ -31,7 +37,8 @@ class idr_Features:
             where keypoints (tuple):  (x, y)
             descriptor (list): [d1, d2, d3, a1, a2, a3] d:distance, a:angulo
         """
-        raw_descriptor = gen_graph(binary_img)
+        # raw_descriptor = gen_graph(binary_img)  # old version
+        raw_descriptor = graph(binary_img)      # new version
         self.len_raw = len(raw_descriptor)
         self.bin_img = binary_img
 
@@ -43,7 +50,11 @@ class idr_Features:
         # RESHAPE DESCRIPTOR
         for key in raw_descriptor:
             if len(raw_descriptor[key]['neigh']) == 3:
-                self.features[tuple(raw_descriptor[key]['center'])] = raw_descriptor[key]['dist'] + raw_descriptor[key]['ang']
+                self.features[tuple(raw_descriptor[key]['yx'])] = \
+                    raw_descriptor[key]['dist'] + \
+                    raw_descriptor[key]['ang'] + \
+                    [x for xs in list(map(lambda x: raw_descriptor[x]['yx'], raw_descriptor[key]['neigh'])) for x in xs]
+                    # ultimo append faz isso: [[a, b], [c, d], [e, f]] -> [a, b, c, d, e, f]
                 self.avg_dist += sum(raw_descriptor[key]['dist'])
 
             # count number of bad neighbours
@@ -55,8 +66,27 @@ class idr_Features:
         self.prob_badneigh /= self.len_raw
         
         # NORMALIZE DISTANCE & DEGREES -> RADIANS
-        for key in self.features:                   # dist / avg_dist                               # Degrees to radians
-            self.features[key] = list(map(lambda x: x/self.avg_dist, self.features[key][:3])) + list(map(lambda x: (x + 360)%360, self.features[key][3:]))
+        for key in self.features:                   
+            aux = []
+            # aux += self.features[key][:6] # not normalized
+            aux += list(map(lambda x: x/self.avg_dist, self.features[key][:3]))                         # dist / avg_dist                               
+            aux += list(map(lambda x: radians((x + 360)%360)/radians(360), self.features[key][3:6]))    # Degrees to radians
+            aux += list(map(lambda x: x/512, self.features[key][6:]))                                   # normalize coordinates
+
+            self.features[key] = aux
+            
+            
+    def print_features(self, num):
+        """prints 'num' first features extracted & reshaped
+
+        Args:
+            num (int): number of descriptors to print, will print at max all features
+        """
+        num = num if num < len(self.features) else len(self.features)
+        
+        print(f'len descriptor: {len(self.features[list(self.features.keys())[0]])}')
+        for i in range(num):
+            print(self.features[list(self.features.keys())[i]])
 
 
 class idr_Matcher:
@@ -72,24 +102,16 @@ class idr_Matcher:
 
         dict1 = Features1.features
         dict2 = Features2.features
+        size_descr = len(list(dict1.values())[0])
         
+        weights = [1]*size_descr    # all weights equal 1
+        weights[0:3] = [0]*3        # zeroes out dist descriptors
+        weights[3:6] = [0]*3        # zeroes out ang descriptors
+        # weights[6:]  = [0]*6        # zeroes out weight of neigh coordinates 
         matches = []
-        
-        # des1 = np.asarray(list(dict1.values()), np.float32)
-        # des2 = np.asarray(list(dict2.values()), np.float32)
-        # FLANN parameters
-        # FLANN_INDEX_KDTREE = 1
-        # index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        # search_params = dict(checks=50)   # or pass empty dictionary
-        # flann = cv2.FlannBasedMatcher(index_params,search_params)
-        # matches = flann.knnMatch(des1,des2,k=2)
-        
-        # for src, dst in matches:
-        #     print(src.imgIdx, dst.imgIdx)
-                
+      
         # feature = {keypoint: descriptor}
         # size_descr = len(dict1[list(dict1.values()[0])])
-        size_descr = len(list(dict1.values())[0])
         # DMatch Euclidean distance without weights
         for kp1 in dict1:
             mini = inf
@@ -97,7 +119,7 @@ class idr_Matcher:
             for kp2 in dict2:
                 sum = 0
                 for i in range(size_descr):
-                    sum += (dict1[kp1][i] - dict2[kp2][i])**2
+                    sum += weights[i]*(dict1[kp1][i] - dict2[kp2][i])**2
                 euclidean = sqrt(sum)
                 # euclidean = sqrt(sum)/size_descr
                 # euclidean = sqrt(np.linalg.norm(dict1[kp1])**2 + np.linalg.norm(dict2[kp2])**2)
@@ -114,7 +136,7 @@ class idr_Matcher:
         return matches
 
 
-    def ransac(matches):
+    def ransac(matches, ransac_specs):
         """separates data in matches with ransac into inliers and outliers
         returns (N,) array of inliers classified as True,
         together with a list of coordinates from source image (src) and compare image (cmp)
@@ -126,7 +148,6 @@ class idr_Matcher:
         Returns:
             inliers, src, cmp: whose types are respectively -> (N,) array ; list ; list 
         """
-       
         # split from matches source coordinates and compare coordinates
         src = []
         cmp = []
@@ -140,8 +161,15 @@ class idr_Matcher:
 
         # robustly estimate transform model with RANSAC
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
-        model_robust, inliers = ransac((src, cmp), skit.SimilarityTransform, min_samples=3,
-                                    residual_threshold=10, max_trials=500)
+        model_robust, inliers = ransac((src, cmp),
+                                       skit.SimilarityTransform, 
+                                       min_samples= 3,
+                                       max_trials= 500,
+                                       residual_threshold= 5,
+                                    #    min_samples= ransac_specs['min_samples'],
+                                    #    max_trials= ransac_specs['max_trials'],
+                                    #    residual_threshold= ransac_specs['residual_threshold'],
+                                       )
         
         # outliers are the boolean oposite of inliers
         # outliers = inliers == False

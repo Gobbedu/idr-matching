@@ -1,12 +1,17 @@
 #!/bin/python3
 
-from re import T
+"""File with experimental & under development code
+"""
+
 from bovineMatcher import *
+from idr_testes import *
 import methods as use
-import ast
+
+from time import perf_counter
 from glob import glob
 import random
-
+import ast
+import os
 
 file1 = './data/Jersey_SMix/J8/J8_S2_0.png'
 file2 = './data/Jersey_SMix/J8/J8_S2_1.png'
@@ -21,318 +26,132 @@ dir1 = 'data/subset'
 dir2 = 'data/Jersey_S1-b'
 dir3 = 'data/Jersey_SMix'
 
-def amain():
-    a = idr_Features(file1)
-    b = idr_Features(file2)
-
-    print(a.features[list(a.features.keys())[0]])
-    print(b.features[list(b.features.keys())[0]])
+file0 = 'data/Jersey_S1-b/J102/J102_S1_13.png'
+  
 
 def main():
-    animals = glob(dir3+'/*/*.png')
+    # idr_Features(file0).print_features(2)
+    min_false_rejection()
+    # test_memoize()
+    # evaluate_matches()
+    # find_most_similar(file1, glob(dir3+'/*/*.png'), 1)
+    return
+
+
+def overlap_graphs(img1, img2, save_path):
+    """TODO"""
+    f1 = idr_Features(img1)
+    f2 = idr_Features(img2)
+    
+
+
+def evaluate_matches():
+    animals = glob(dir3+'/*/*.png')   
     
     filesS1 = [file for file in animals if "S1" in file]
     filesS2 = [file for file in animals if "S2" in file]
     
     # print(f'len S1 {len(filesS1)}, len S2 {len(filesS2)}')
+    # # # save bad vertice probab greater than 25% (w/ p = .25 only 28/164 images pass on S2 )
+    filter_val = 1
+    filterS1, data1 = currate(filesS1, filter_val)
+    filterS2, data2 = currate(filesS2, filter_val)
+    # print(f'len currated S1 {len(filterS1)}, len currated S2 {len(filterS2)}')
 
-    # only files with probab of bad vertice < 25% (w/ p = .25 only 28/164 images pass on S2 )
-    # filesS1, data1 = currate(filesS1, 0.25)
-    # filesS2, data2 = currate(filesS2, 0.25)
-
-    # print(f'len currated S1 {len(filesS1)}, len currated S2 {len(filesS2)}')
-
-    findS1 = rand_bovines(filesS1)
-    findS2 = rand_bovines(filesS2)
-
+    # print(f'data from currate:\n{data1}\n{data2}')
+    findS1 = rand_bovines(filterS1)
+    findS2 = rand_bovines(filterS2)
     # print(f'len findS1 {len(findS1)}, len findS2 {len(findS2)}')
+    
+    min_samples = 3
+    max_trials = 500
 
-    # test = idr_Features(animals[0])
-    # find_most_similar(findS1, filesS1[:10])
-    
-    s1intra = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S1_intra_f0_r10"
-    s2intra = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S2_intra_f0_r10"
-    s1inter = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S1_inter_f0_r10"
-    s2inter = "results/EER/dist÷avg+0radians360/noFilter_Ransac10/S2_inter_f0_r10"
-    
-    
-    avaliar_ransac(findS1, filesS1, save_path=s1intra, compare='S1 intra-session')
-    avaliar_ransac(findS2, filesS2, save_path=s2intra, compare='S2 intra-session')
-    avaliar_ransac(findS1, filesS2, save_path=s1inter, compare='S1 to S2 inter-session')
-    avaliar_ransac(findS2, filesS1, save_path=s2inter, compare='S2 to S1 inter-session')
+    r_values = {}
+    r_values['max_trials'] =  max_trials
+    r_values['min_samples'] = min_samples
 
-    save = True
-    plot_eer('S1 Intra session', s1intra, save)
-    plot_eer('S2 Intra session', s2intra, save)
-    plot_eer('find S1 inter S2', s1inter, save)
-    plot_eer('find S2 inter S1', s2inter, save)
-    
-def plot_roc(title, file_path, save):
-    """Plots the False Acceptance & Rejection of a 
-    dataset provided by file_path, where the similarity is stored in
-    line 2 and 5 for same bovine and different bovine respectively
+    for residual_threshold in  [5, 10, 15, 20, 25, 30]:
+        result_dir = f"results/EER/only-coord/Filter{filter_val}_Ransac{residual_threshold}/"
+        try:
+            os.makedirs(result_dir, exist_ok=True) 
+        except Exception as e: 
+            print(e)
+            raise e
+        
+        r_values['residual_threshold'] = residual_threshold
+        print(f'avaliando ransac com {r_values}...')
 
-    Args:
-        title (string): title to appear in the plot
-        file_path (string): path to dataset stored in a file as string
-        save (boolean): if True save to file_path but as png, else just vizualize
-    """
-    # lines of interest in saved file
+        avaliar_ransac(findS1, filterS1, save_path=result_dir+f'S1_intra_f{filter_val}_r{residual_threshold}', ransac_specs=r_values)
+        avaliar_ransac(findS2, filterS2, save_path=result_dir+f'S2_intra_f{filter_val}_r{residual_threshold}', ransac_specs=r_values)
+        avaliar_ransac(findS1, filterS2, save_path=result_dir+f'S1_inter_f{filter_val}_r{residual_threshold}', ransac_specs=r_values)
+        avaliar_ransac(findS2, filterS1, save_path=result_dir+f'S2_inter_f{filter_val}_r{residual_threshold}', ransac_specs=r_values)
+
+        save = True
+        plot_eer('S1 Intra session', result_dir+f'S1_intra_f{filter_val}_r{residual_threshold}', save)
+        plot_eer('S2 Intra session', result_dir+f'S2_intra_f{filter_val}_r{residual_threshold}', save)
+        plot_eer('find S1 inter S2', result_dir+f'S1_inter_f{filter_val}_r{residual_threshold}', save)
+        plot_eer('find S2 inter S1', result_dir+f'S2_inter_f{filter_val}_r{residual_threshold}', save)
+
+
+def min_false_rejection():
+    ransacs = [5, 10,]
+    thresholds = np.arange(0.01, 1.01, 0.01)
+    sessions = ['S1_intra', 'S2_intra', 'S1_inter', 'S2_inter']
+    metrics = ['only-dist', 'only-ang', 'only-coord']
+    # format file path w/ parameters
+    file = lambda met, ran, fil, session: f"results/EER/{met}/Filter{fil}_Ransac{ran}/{session}_f{fil}_r{ran}.dat"
+
+    # data of interest on saved file
     same_bov = 2
     diff_bov = 5
 
-    # read and save data to list from file
-    same_bov_sim, diff_bov_sim = [], []
-    with open(file_path, 'r') as f:
-        for i, line in enumerate(f):
-            if i == same_bov -1:
-                # same_bov_sim = line.strip("][").split(', ') # string of list to list
-                same_bov_sim = ast.literal_eval(line)
-            if i == diff_bov -1:
-                # diff_bov_sim = line.strip("][").split(', ') # string of list to list
-                diff_bov_sim = ast.literal_eval(line)
+    print(f'ransac/ {sessions}')
+    for m in metrics:
+        for r in ransacs:
+            min_frr = [0,0,0,0]
+            for ns, s in enumerate(sessions):
+                # print(file(r, 0, s))    
+                same_bov_sim, diff_bov_sim = [], []
+                with open(file(m, r, 1, s), 'r') as f:
+                    for i, line in enumerate(f):
+                        if i == same_bov -1:
+                            # same_bov_sim = line.strip("][").split(', ') # string of list to list
+                            same_bov_sim = ast.literal_eval(line)
+                        if i == diff_bov -1:
+                            # diff_bov_sim = line.strip("][").split(', ') # string of list to list
+                            diff_bov_sim = ast.literal_eval(line)
 
-    # classify
-    far, frr= [], []
+                for x in thresholds:
+                    # if false acceptance is 0, print sessions false rejection
+                    bool_far = [boi > x for boi in diff_bov_sim]    # True if impostor bovine is accepted
+                    if(sum(bool_far) == 0):
+                        bool_frr = [boi < x for boi in same_bov_sim]    # True if original bovine is rejected
+                        # print(f"{s}_{r}: false rejections % with 0% false acceptance: {sum(bool_frr)/(len(bool_frr))}")
+                        min_frr[ns] = sum(bool_frr)/(len(bool_frr))
+                        break
+                f.close()
 
-    # filter smallest 10% similarity of both
-    # same_bov_sim = sorted(same_bov_sim)[int(len(same_bov_sim)*.1):]
-    # diff_bov_sim = sorted(diff_bov_sim)[int(len(diff_bov_sim)*.1):]
-
-    #range from 0.01 to 1, step = 0.01 (100 values)
-    thresholds = np.arange(0.01, 1.01, 0.01)
-
-    for x in thresholds:
-        # compute FAR
-        bool_far = [boi > x for boi in diff_bov_sim]    # True if impostor bovine is accepted
-        far.append(sum(bool_far)/len(bool_far))         # count and normalize boolean impostor
+            # print('{:2}, {}'.format(r, '{}'.format(min_frr)))
+            print(f'{m:10} r{r:2} {[x for x in min_frr]}')
         
-        # compute FRR
-        bool_frr = [boi < x for boi in same_bov_sim]    # True if original bovine is rejected
-        frr.append(sum(bool_frr)/len(bool_frr))         # count and normalize boolean original
 
-    # compute EER
-    # values do not equal, intersection can be estimated visualy 
-
-    # plot results
-    fig, ax = plt.subplots()
-    ax.plot(thresholds, frr, 'g.-', label='FRR')
-    ax.plot(thresholds, far, 'r.-', label='FAR')
-    ax.set_xticks(np.arange(0, 1.05, 0.05))
-    ax.set_yticks(np.arange(0, 1.05, 0.05))
-    ax.grid(True)
-    ax.legend()
-
-    plt.xlabel('Thresholds')
-    plt.ylabel('Occurences / Total')
-    plt.suptitle(title)
-
-    if save:
-        plt.savefig(file_path.split('.')[0]+'haha')
-    else:
-        plt.show()
-        
-    plt.close()
-
-
-def plot_curate(data):
-    rawS1, rawS2, curS1, curS2 = data[0], data[1], data[2], data[3]
-    # rawS1 = {'J128': 16, 'J92': 8, 'J73': 11, 'J91': 9, 'J101': 12, 'J11': 7, 'J173': 11, 'J423': 6, 'J89': 10, 'J15': 10, 'J25': 3, 'J99': 9, 'J64': 8, 'J8': 11, 'J86': 8, 'J71': 11, 'J357': 6, 'J102': 8}
-    # curS1 = {'J128': 16, 'J92': 8, 'J73': 11, 'J91': 9, 'J101': 12, 'J11': 7, 'J173': 11, 'J423': 6, 'J89': 10, 'J15': 10, 'J25': 3, 'J99': 9, 'J64': 8, 'J8': 11, 'J86': 8, 'J71': 11, 'J357': 6, 'J102': 8}
-    # rawS2 = {'J128': 16, 'J92': 8, 'J73': 11, 'J91': 9, 'J101': 12, 'J11': 7, 'J173': 11, 'J423': 6, 'J89': 10, 'J15': 10, 'J25': 3, 'J99': 9, 'J64': 8, 'J8': 11, 'J86': 8, 'J71': 11, 'J357': 6, 'J102': 8}
-    # curS2 = {'J128': 0,  'J92': 0, 'J73': 5,  'J91': 0, 'J101': 7,  'J11': 0, 'J173': 0,  'J423': 0, 'J89': 0,  'J15': 6,  'J25': 0, 'J99': 7, 'J64': 0, 'J8': 2,  'J86': 0, 'J71': 1,  'J357': 0, 'J102': 0}
-
-    names = list(rawS1.keys())
-    size = len(rawS1)
-
-    names = list(rawS1.keys())
-    values = list(rawS1.values())
-
-    fig = plt.figure()
-    gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
-    ((ax1, ax2), (ax3, ax4)) = gs.subplots(sharex=True, sharey=True)
-
-    ax1.bar(range(size), list(rawS1.values()), tick_label=names)
-    ax1.set_title("#animals S1", y=1.0, pad=-14)
-    ax2.bar(range(size), list(rawS2.values()), tick_label=names)
-    ax2.set_title("#animals S2", y=1.0, pad=-14)
-    ax3.bar(range(size), list(curS1.values()), tick_label=names)
-    ax3.set_title("salva badness < 30% S1", y=1.0, pad=-14)
-    ax4.bar(range(size), list(curS2.values()), tick_label=names)
-    ax4.set_title("salva badness < 30% S2", y=1.0, pad=-14)
-    plt.show()
-
-
-def currate(files, probability):
-    """returns a currated list of files where the occurances of bad vertices 
-    in an image is less than the given probability.
-
-    Args:
-        files (list): list of strings with path to binary img
-        probability (float): a value between 0 and 1 to filter bad vertice probability
-
-    Returns: 
-        list: list of animals where #(neighbour < 3)/Total is < probability
-    """
-    currated = []
-    
-    bois = list(set([boi.split('/')[2] for boi in files]))
-    
-    rawS1 = {boi: 0 for boi in bois}
-    curS1 = {boi: 0 for boi in bois} 
-    rawS2 = {boi: 0 for boi in bois}
-    curS2 = {boi: 0 for boi in bois} 
-    
-    filesS1 = [animal for animal in files if "S1" in animal]
-    filesS2 = [animal for animal in files if "S2" in animal]
-
-    # filter
-    for i, animal in enumerate(filesS1, start=1):
-        print(f'\rcurrated {i}:{len(filesS1)} from S1', end=' '*10)
-        boi = animal.split('/')[2]
-        rawS1[boi] += 1
-        tmp = idr_Features(animal)
-        if tmp.prob_badneigh < probability:
-            currated.append(animal)
-            curS1[boi] += 1
-    for i, animal in enumerate(filesS2, start=1):
-        print(f'\rcurrated {i}:{len(filesS2)} from S2', end=' '*10)
-        boi = animal.split('/')[2]
-        rawS2[boi] += 1
-        tmp = idr_Features(animal)
-        if tmp.prob_badneigh < probability:
-            currated.append(animal)
-            curS2[boi] += 1
-            
-    print()
-    # print(rawS1)
-    # print(curS1)
-    # print(rawS2)
-    # print(curS2)
-
-    return currated, [rawS1, rawS2, curS1, curS2]
-
-def sessions(files):
-    """compares different metrics between sessions"""
-
-    session1 = [animal for animal in files if "S1" in animal]
-    session2 = [animal for animal in files if "S2" in animal]
-
-    num_raw1, num_desc1, num_raw2, num_desc2 = [], [], [], []
-    # badness1, badness2 = [], []
-    for file in session1:
-        tmp = idr_Features(file)
-        # badness1.append(tmp.prob_badneigh)
-        num_raw1.append(tmp.len_raw)
-        num_desc1.append(len(tmp.descriptor))
-
-    for file in session2:
-        tmp = idr_Features(file)
-        # badness2.append(tmp.prob_badneigh)
-        num_raw2.append(tmp.len_raw)
-        num_desc2.append(len(tmp.descriptor))
-
-    fig, ax = plt.subplots()
-    
-    # ax.boxplot([badness1, badness2])
-    # ax.set_xticklabels(["Session 1", "Session 2"])
-    # ax.set_ylabel('Ruim / Total')
-    # plt.suptitle("Distribution of Bad vertices Probability")
-
-    ax.boxplot([num_raw1, num_raw2, num_desc1, num_desc2])
-    ax.set_xticklabels(["raw S1", "raw S2", "neigh3 S1", "neigh3 S2"])
-    ax.set_ylabel('Lenght')
-    plt.suptitle('Lenght of each descriptor for different sessions')
-    
-    plt.show()
-    # plt.savefig('badness<3.png')
-
-
-def plot_eer(title, file_path, save):
-    """Plots the False Acceptance & Rejection of a 
-    dataset provided by file_path, where the similarity is stored in
-    line 2 and 5 for same bovine and different bovine respectively
-
-    Args:
-        title (string): title to appear in the plot
-        file_path (string): path to dataset stored in a file as string
-        save (boolean): if True save to file_path but as png, else just vizualize
-    """
-    # lines of interest in saved file
-    same_bov = 2
-    diff_bov = 5
-
-    # read and save data to list from file
-    same_bov_sim, diff_bov_sim = [], []
-    with open(file_path+'.dat', 'r') as f:
-        for i, line in enumerate(f):
-            if i == same_bov -1:
-                # same_bov_sim = line.strip("][").split(', ') # string of list to list
-                same_bov_sim = ast.literal_eval(line)
-            if i == diff_bov -1:
-                # diff_bov_sim = line.strip("][").split(', ') # string of list to list
-                diff_bov_sim = ast.literal_eval(line)
-
-    # classify
-    far, frr= [], []
-
-    # filter smallest 10% similarity of both
-    # same_bov_sim = sorted(same_bov_sim)[int(len(same_bov_sim)*.1):]
-    # diff_bov_sim = sorted(diff_bov_sim)[int(len(diff_bov_sim)*.1):]
-
-    #range from 0.01 to 1, step = 0.01 (100 values)
-    thresholds = np.arange(0.01, 1.01, 0.01)
-
-    for x in thresholds:
-        # compute FAR
-        bool_far = [boi > x for boi in diff_bov_sim]    # True if impostor bovine is accepted
-        far.append(sum(bool_far)/(len(bool_far)+1))     # count and normalize boolean impostor
-        # compute FRR
-        bool_frr = [boi < x for boi in same_bov_sim]    # True if original bovine is rejected
-        frr.append(sum(bool_frr)/(len(bool_frr)+1))     # count and normalize boolean original
-
-    # compute EER
-    # values do not equal, intersection can be estimated visualy 
-
-    # plot results
-    # plt.rcParams["figure.figsize"] = (20,10)
-    fig, ax = plt.subplots(figsize=(14,7), dpi=150)
-    # fig.set_dpi(100)
-    ax.plot(thresholds, frr, 'g.-', label='FRR')
-    ax.plot(thresholds, far, 'r.-', label='FAR')
-    ax.set_xticks(np.arange(0, 1.05, 0.05))
-    ax.set_yticks(np.arange(0, 1.05, 0.05))
-    ax.grid(True)
-    ax.legend()
-
-    plt.xlabel('Thresholds')
-    plt.ylabel('Occurences / Total')
-    plt.suptitle(title)
-
-    if save:
-        plt.savefig(file_path)
-    else:
-        plt.show()
-        
-    plt.close()
-
-
-def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
-    """Select a random number (num_indiv) of different individuals from files.
-    For each of them, iterates through every one from files (except themselves). 
-    Finds the most similar image between the given individual and every one present on the dataset
+def avaliar_ransac(find, files, save_path, ransac_specs, title='all matches'):
+    """For each file in 'find' , iterates through 'files' comparing their similarity. 
+    Finds the most similar image between the given individual and every one present on 'files'
 
     Args:
         files (list): various paths to animals on dataset
         find (list): animals to find best match on dataset
+        save_path (string): path to save .dat file
+        title (string): used to plot other info, used if code is uncommented
     """
 
     rsc_data = [[]]*6
     
     # append results
-    for i, indiv in enumerate(find, start=1):
-        print(f'\r{i}:{len(find)} finding match for {indiv}', end=20*' ')
-        results = find_most_similar(indiv, files)
+    for f_no, indiv in enumerate(find, start=1):
+        print(f'\r{f_no}:{len(find)} finding match for {indiv}', end=20*' ')
+        results = find_most_similar(indiv, files, ransac_specs)
         for i in range(6):
             rsc_data[i] = rsc_data[i] + results[i]      # APPEND LISTS
     print()
@@ -346,18 +165,19 @@ def avaliar_ransac(find, files, save_path='aux.png', compare='all matches'):
         print(f'number of inliers of different bovines:\n{rsc_data[1]}\n', file=f)
         print(f'number of outliers of different bovines:\n{rsc_data[3]}\n', file=f)
     
+    # PLOT DATA
     # count = [same_inl, diff_inl, same_oul, diff_oul]
     # boxplot_ransac(rsc_data, save=True, out_box="Total_Boxplotsimi.png")
-    fig1, ax1 = plt.subplots()
-    ax1.boxplot([rsc_data[4], rsc_data[5]])
-    ax1.set_xticklabels(["Same bovine", "Different bovine"])
-    ax1.set_ylabel("Similarity  (Inlier / Total)")
-    ax1.set_title(f"Similarity of {compare} (finds {len(find)} animals in {len(files)-1} images each)")
-    # plt.show()
-    plt.savefig(save_path+'.png')
+    # fig1, ax1 = plt.subplots()
+    # ax1.boxplot([rsc_data[4], rsc_data[5]])
+    # ax1.set_xticklabels(["Same bovine", "Different bovine"])
+    # ax1.set_ylabel("Similarity  (Inlier / Total)")
+    # ax1.set_title(f"Similarity of {title} (finds {len(find)} animals in {len(files)-1} images each)")
+    # # plt.show()
+    # plt.savefig(save_path+'.png')
 
     
-def find_most_similar(src_file, src_files, plot_result=False):
+def find_most_similar(src_file, src_files, ransac_specs, plot_result=False):
     """Iterates over every file in src_files to find the image witch
     has the greatest similarity to the image in src_file.
     returns a list with counted number of inliers and outliers from the same
@@ -397,7 +217,7 @@ def find_most_similar(src_file, src_files, plot_result=False):
         # dc = comp.descriptor
         
         matches = idr_Matcher.match(orig, comp)
-        inliers, src, dst = idr_Matcher.ransac(matches)
+        inliers, src, dst = idr_Matcher.ransac(matches, ransac_specs)
         outliers = inliers == False
 
         sum_inl = sum(inliers)
@@ -472,75 +292,8 @@ def rand_bovines(files):
     return find
 
 
-def test_graph_gen():
-    """Iterates over every image specified and 
-    generates a graph for every single one of them, in order
-    to find any possible errors on gen_graph
-    """
-    files = glob(dir1+'/*/*.png')
-    count = 1
-    for file in files:
-        print(count, end=' ')
-        test = idr_Features(file)
-        count += 1
-
-
-def ransac_matches(f1, f2):
-    """Plot the mathces with ransac between the specified files
-
-    Args:
-        f1 (string): path to binary image file
-        f2 (string): path to binary image file
-    """
-    t1 = idr_Features(f1)
-    t2 = idr_Features(f2)
-    
-    matches = idr_Matcher.match(t1, t2)
-    # print(f"MATCHES[1]: {matches[0][1]}")
-    # idr_Features._ransac_vertices(d1, d2, t1.bin_img, t2.bin_img)
-    inl, src, dst = idr_Matcher.ransac(matches)
-    idr_Matcher.draw_matches(inl, src, dst, f1, f2)
-
-
-def neigh_hist():
-    """
-    Plots a histogram of the number of neighbours 
-    of all images on the specified directory
-    """
-    files = glob(dir3+'/*/*.png')
-
-    # #(neigh) p/ 1, 2, 3, 4, < 4 
-    data = {1: 0, 2: 0, 3: 0, 4: 0, '> 4':0}
-
-    # for file in files:
-    #     raw_descriptor = gen_graph(file)        
-    #     for key in raw_descriptor:
-    #         N = len(raw_descriptor[key]['neigh'])
-    #         if N <= 4:
-    #             data[N] += 1
-    #         else:
-    #             data['> 4'] += 1
-
-    # resultado de rodar em Jersey_S1-b
-    # data = {1: 0, 2: 3926, 3: 13739, 4: 584, '> 4': 3}
-    # resultado de rodar em Jersey_SMix
-    data = {1: 5314, 2: 10345, 3: 47096, 4: 1920, '> 4': 4}
-
-    names = ['1', '2', '3', '4', '> 4']    
-    values = list(data.values())
-    summ = sum(values)
-
-    values = [values[i]/summ for i in range(len(values))]
-    
-    plt.bar(names, values)
-    plt.ylabel('Probability of occuring')
-    plt.xlabel('Number of neighbours')
-    # plt.show()
-    plt.savefig('results/histogram_neigh.png')
-    
-    
 def raw_methods():
-    """Vizualisation of attempted matches with out of the box methods
+    """Vizualisation of attempted matches with out of the box methods (SIFT)
     """
     # descriptor distance from another image
     key1, des1 = idr_Features(file1)
@@ -564,4 +317,10 @@ def raw_methods():
     
     
 if __name__ == "__main__":
+    start_time = perf_counter()
+
     main()
+
+    end_time = perf_counter()
+    print(f'It took {end_time- start_time :0.2f} second(s) to complete main.')
+    
