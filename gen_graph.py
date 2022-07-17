@@ -1,22 +1,28 @@
 # generates a graph from a segmented black&white image.
-# call with gen_graph(img_path)
+# call with graph(img_path)
 
+# general imports
 import cv2
 import numpy as np
 import scipy
-import math
-
-from scipy.spatial import distance
 from skimage.draw import line, line_aa
 
+# in folder, but not made by us
 import bwmorph
 
-IMG_PATH = 'data/2-seg/Jersey_S1-b/J106/J106_S1_4.png'
+# in folder, made by us
+import desc
+import dist_transform
+from graph import Graph
+from graph import Vertex
+from graph import Neigh
+
+
+IMG_PATH = './data/2-seg/Jersey_SMix/J8/J8_S2_0.png'
 # './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 9.9
 ISO_NEIGH = 1
-draw_antialiased = False
 DEBUGPRINT = False
 
 def debugprint(s):
@@ -24,103 +30,33 @@ def debugprint(s):
         print(s)
 
 
-def calc_dist(vertexes, i1, i2):
-    return distance.euclidean(vertexes[i1]['center'], vertexes[i2]['center'])
-
-def calc_angle(vertexes, i1, i2):
-    return math.degrees(math.atan2(vertexes[i1]['center'][0]-vertexes[i2]['center'][0], vertexes[i1]['center'][1]-vertexes[i2]['center'][1]))
-
-
-def compare_logic(vertexes, i, key, value):
-    pos = 0
-    while pos < len(vertexes[i][key]):
-        if value < vertexes[i][key][pos]:  # < sign = smallest to biggest
-            break
-        pos += 1
-    return pos
-    
-def neighbor_sorting_logic(vertexes, i1, i2, key='ang'):
-    pos1 = compare_logic(vertexes, i1, key, calc_angle(vertexes, i1, i2))
-    pos2 = compare_logic(vertexes, i2, key, calc_angle(vertexes, i2, i1))
-    return pos1, pos2
-
-def create_edge(vertexes, i1, i2):  # lvx, lvp
-    pos1, pos2 = neighbor_sorting_logic(vertexes, i1, i2)
-    # pos1 = pos2 = 0  # uncomment to not use neighbor sorting
-    vertexes[i1]['neigh'].insert(pos1, i2)
-    vertexes[i2]['neigh'].insert(pos2, i1)
-    vertexes[i1]['dist'].insert(pos1, calc_dist(vertexes, i1, i2))
-    vertexes[i2]['dist'].insert(pos2, calc_dist(vertexes, i2, i1))
-    vertexes[i1]['ang'].insert(pos1, calc_angle(vertexes, i1, i2))
-    vertexes[i2]['ang'].insert(pos2, calc_angle(vertexes, i2, i1))
-    return
-
-
-def create_vertex(center=None, neigh=None, dist=None, ang=None):  # improvement by Gobbo
-    params = locals()
-    for i in params:
-        params[i] = [] if params[i] is None else params[i]
-    return params
-
-
-def remove_reference(vertexes, i, i_to_remove):  # index of vertex containing reference to be removed, index of reference to remove
-    try:
-        index_rem = vertexes[i]['neigh'].index(i_to_remove)
-        for k in vertexes[i]:
-            if k != 'center':  # center only has two positions, while all other keys (for now) have length equal to number of neighbors
-                vertexes[i][k].pop(index_rem)
-    except ValueError:
-        index_rem = -1
-    return
-
-
-def remove_vertex(vertexes, i):  # index of vertex to remove. remove all references to it in neighbors, then remove the vertex itself
-    for n in vertexes[i]['neigh']:
-        remove_reference(vertexes, n, i)
-    vertexes.pop(i)
-    return
-
-
 def quick_stats(vertexes, key):
-    flattened = [e for s in [vertexes[i][key] for i in vertexes] for e in s]  # just believe, it works
+    flattened = [getattr(e,key) for e in [elem for neigh in [v.neighs for v in vertexes] for elem in neigh]]
     return [np.average(flattened), np.median(flattened), np.min(flattened), np.max(flattened)]
 
 
-def count(vertexes):
-    n_edges = 0
-    for v in sorted(vertexes):
-        n_edges += len(vertexes[v])
-    print("vertexes: %d  |  edges: %d" % (len(vertexes), n_edges))
-    return
+def list_of_key(graph, key):  # not used at the moment
+    return [getattr(v,key) for v in graph]
 
 
 
-def print_vertex(vertexes, i):
-    print("i: %d | center: %s | neigh: %s | dist: %s | ang: %s" % (i, vertexes[i]['center'], vertexes[i]['neigh'], [round(d,2) for d in vertexes[i]['dist']], [round(a,2) for a in vertexes[i]['ang']]))
-
-def print_vertexes(vertexes):
-    for i in vertexes:
-        print_vertex(vertexes, i)
-
-
-def gen_graph(img_path):
-    img = cv2.imread(IMG_PATH, 0)
+# heavy graph logic starts here
+def gen_graph(img):
     print("shape: %s  |  max: %d  |  min: %d" % (img.shape, img.max(), img.min()))
 
     img_neighbors = bwmorph._neighbors_conv(img==255)
 
-    lpvertices = np.transpose(np.where(img_neighbors>2))  # returning a numpy array
-    lpvertices = lpvertices.tolist()
+    naive_vertexes = np.transpose(np.where(img_neighbors>2)).tolist()  # returning a numpy array, which is then converted to list
     img_bgr = np.stack((img,)*3, axis=-1)  # changing from mono to bgr (copying content to all channels)
     imgv, nvertices = scipy.ndimage.label(img_neighbors>2)
-    print('vertex pixels: %d' % (len(lpvertices)))
+    print('vertex pixels: %d' % (len(naive_vertexes)))
 
-    # imgv - label of vertices
+    # imgv - label of vertexes
     # img_neighbors - connectivity of graph pixels
     img_graph = np.zeros(img.shape, dtype='i')  # - graph
     img_state = np.zeros(img.shape, dtype='i')  # - state
-    vertexes = {}  # list of edges based on label of vertices
-    lpgraph = lpvertices.copy()
+    graph = Graph()
+    lpgraph = naive_vertexes.copy()
     neighbors = [(-1,-1),(-1,0),(-1,1),(0,-1)     ,(0,1),(1,-1),(1,0),(1,1)]
     pt = 0
     while pt < len(lpgraph):
@@ -131,8 +67,8 @@ def gen_graph(img_path):
 
         if img_neighbors[px[0], px[1]] > 2:  # is a vertex pixel
             lvp = imgv[px[0], px[1]]  # initializing graph
-            if lvp not in vertexes:
-                vertexes[lvp] = create_vertex(center=px)
+            if lvp > len(graph.vertexes):  # new element (index greater than current size of list)
+                graph.vertexes.append(Vertex(graph=graph, i=len(graph.vertexes), yx=px))
         else:
             lvp = img_graph[px[0], px[1]]
 
@@ -152,135 +88,158 @@ def gen_graph(img_path):
                 if lvx == 0:
                     lpgraph.append([x0,x1])
                     img_graph[x0, x1] = lvp
-                elif lvx != lvp:  # we don't merge vertexes here to avoid bugs with retroactively updating, but there must be a better way
-                    create_edge(vertexes, lvx, lvp)
+                elif lvx != lvp:  # define neighbor
+                    graph.create_edge(lvx-1, lvp-1)
 
-    count(vertexes)
+    print(graph)
+    print()
+    return graph
 
 
+
+def merge_vertexes(graph):
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
     # we do this step before the next one (removing isolated vertexes), as vertexes that are too close together would not be considered to be isolated
-    print()
     print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 
-    # begin by generating a list of vertexes to merge
-    vertexes_to_merge = set()
-    for vertex in vertexes:  # small optimization issue: this checks every edge twice ("on the way forward", and "on the way back")
-        for i in range(len(vertexes[vertex]['dist'])):  # checks distance value of all edges for that vertex
-            dist = vertexes[vertex]['dist'][i]
-            if dist < TOO_SHORT:
-                index1 = vertex
-                index2 = vertexes[vertex]['neigh'][i]  # reference to relevant neighbor
-                vertexes_to_merge.add(frozenset([index1, index2]))  # adds indexes of vertexes to update. by using a set, we avoid dealing with duplicates like [42,69] and [69,42]
+    vertexes = graph.vertexes  # just for readability
 
-    vertexes_to_merge = [list(i) for i in list(vertexes_to_merge)]  # cast to list for better usability
-    print("detected %d merges to execute: %s" % (len(vertexes_to_merge), vertexes_to_merge))
+    merge_counter = 0  # just for printing
+    merged_vertexes = []  # just for printing
 
-    # after generating list of vertexes to merge, perform the corresponding updates on their neighbors and the merges
-    ins_index = len(vertexes)  # insertion index. the new (merged) vertexes will be added at the end
-    merge_counter = 0
-    while vertexes_to_merge:
-        e = vertexes_to_merge[0]
-        if e[0] != e[1]:
-            # add the undefined new vertex, except for its central point. we must calculate the centre before removing the vertexes to-merge, as then that information would be lost
-            ins_index += 1  # increment index
-            vertexes[ins_index] = create_vertex(center=np.around(np.add(vertexes[e[0]]['center'], vertexes[e[1]]['center'])/2).astype(int).tolist())
+    i = 0
+    while i < len(vertexes):
+        for neigh in vertexes[i].neighs:  # checks distance value of all edges for that vertex
+            if neigh.dist < TOO_SHORT:  # found something to merge
+                # merges coordinates and neighbors, adds new vertex
+                neighs_of_vertex = [n.i for n in vertexes[i].neighs]  # indexes of neighbors of position 1
+                neighs_of_neigh = [n.i for n in vertexes[neigh.i].neighs]  # indexes of neighbors of position 2
+                all_neighs = set(neighs_of_vertex + neighs_of_neigh)
+                all_neighs.remove(i)
+                all_neighs.remove(neigh.i)
+                graph.add_vertex(np.around(np.add(vertexes[i].yx, vertexes[neigh.i].yx)/2).astype(int).tolist(), all_neighs)
 
-            # get the set of neighbors from the vertexes to be merged (those are the neighbors from the future merged vertex)
-            s = set(vertexes[e[0]]['neigh'] + vertexes[e[1]]['neigh'])  # we use a set in order to automatically deal with duplicates
-            s.discard(e[0])  # remove the vertexes to-merge from the set
-            s.discard(e[1])
-            s = list(s)  # cast it to a list again for ease of use
+                # removes old vertexes
+                graph.remove_vertex(i)
+                graph.remove_vertex(neigh.i)
 
-            # remove the vertexes to merge, completely removing any references to those from their neighbors in the process
-            remove_vertex(vertexes, e[0])
-            remove_vertex(vertexes, e[1])
+                merge_counter += 1
+                merged_vertexes.append([i, neigh.i])
+        i += 1
 
-            # add edges to new vertex and neighbors
-            for i in s:
-                create_edge(vertexes, ins_index, i)
-                debugprint(vertexes[ins_index])
-                debugprint(vertexes[i])
-            merge_counter += 1
+    print("executed %d merges: %s" % (merge_counter, merged_vertexes))
 
-        vertexes_to_merge.pop(0)  # removal
-
-        # finally, we must also ensure that the indexes in the list of vertexes to merge are also updated!
-        for i in vertexes_to_merge:
-            for j in range(len(i)):
-                if i[j] == e[0] or i[j] == e[1]:
-                    i[j] = ins_index
-
-    print("executed %d merges" % (merge_counter))
-    count(vertexes)
+    print(graph)
     print()
+    return graph
 
 
+
+def remove_isolated_vertexes(graph):
     # post-processing 2: remove isolated vertexes, since those connections should be too weak to mean anything significant.
-    # a vertex is isolated if it's only connected to <=ISO_NEIGH neighbor (default 1, seems to make the most sense by far. editable, though)
+    # a vertex is isolated if it's only connected to <=ISO_NEIGH neighbors (default 1, seems to make the most sense by far. editable, though)
     # we check all vertexes with one neighbor, and then add the neighbors of those vertexes to a queue, to see if they were also reduced to one neighbor
+    # the pretty way to do this would be with recursion, but it seems to be not so easy because of dynamic indexing as we remove elements. or maybe i'm just dumb
     print("post-processing 2: remove isolated vertexes (<=%d neighbor)" % (ISO_NEIGH))
 
+    vertexes = graph.vertexes  # just for readability
+
     # loop while there are vertexes with <=1 neighbor (<=ISO_NEIGH, actually)
-    vertexes_to_remove = []
-    vertexes_to_check = [i for i in vertexes]  # start with all indexes
     removal_counter = 0  # just for printing
-    while vertexes_to_check:
-        debugprint("len = %d" % len(vertexes_to_check))
-        debugprint("ver = %s" % (vertexes_to_check))
-        while vertexes_to_check:
-            if len(vertexes[vertexes_to_check[0]]['neigh']) <= ISO_NEIGH:
-                vertexes_to_remove.append(vertexes_to_check[0])
-            vertexes_to_check.pop(0)
 
-        vertexes_to_remove = list(set(vertexes_to_remove))  # removes duplicates lol
-        print("detected %d vertexes to remove: %s" % (len(vertexes_to_remove), vertexes_to_remove))
-
-        while vertexes_to_remove:
-            for j in vertexes[vertexes_to_remove[0]]['neigh']:  # add neighbors
-                vertexes_to_check.append(j)
-            remove_vertex(vertexes, vertexes_to_remove[0])
-            if vertexes_to_remove[0] in vertexes_to_check:  # after removing the vertex, we must make sure it's no longer referenced in our to-check list
-                vertexes_to_check.remove(vertexes_to_remove[0])
-            removal_counter += 1
-            vertexes_to_remove.pop(0)
+    while True:
+        updated_vertexes = False
+        i = 0
+        while i < len(vertexes):
+            if len(vertexes[i].neighs) <= ISO_NEIGH:
+                graph.remove_vertex(i)
+                updated_vertexes = True
+                removal_counter += 1
+            i += 1
+        if not updated_vertexes:
+            break
 
     print("removed %d vertexes with <= %d neighbor" % (removal_counter, ISO_NEIGH))
-    count(vertexes)
+           
+    print(graph)
+    print()
+    return graph
 
 
-    # generates pretty visual representation, just for show. remember that opencv uses BGR, not RGB
+
+
+# drawing to image functions. not necessary for actual functionality
+def draw_vertexes(coords_list, color, img_bgr):
+    for px in coords_list:
+        img_bgr[px[0], px[1]] = color
+    return img_bgr
+    
+
+def draw_lines_between_vertexes(vertexes, color, img_bgr):
+    for vertex in vertexes:
+        exa = vertex.yx
+        for ee in vertex.neighs:
+            exb = vertexes[ee.i].yx
+            rr, cc = line(exa[0], exa[1], exb[0], exb[1])
+            img_bgr[rr, cc] = color
+    return img_bgr
+
+
+
+# generate and save images
+def gen_images(vertexes):
+    # generate pretty visual representation, just for show. remember that opencv uses BGR, not RGB
     # white (255,255,255) = original segmentation
     # red (0, 0, 255) = original vertex pixels before processing
     # blue (255,128,128) = vertex pixels after processing
     # green (0, 255, 0) = edges after processing vertexes
 
-    img_visual = np.stack((img,)*3, axis=-1)  # changing from Mono to BGR (copying content to all channels)
-    for vertex in vertexes:
-        exa = vertexes[vertex]['center']
-        for ee in vertexes[vertex]['neigh']:
-            exb = vertexes[ee]['center']
-            if draw_antialiased:
-                rr, cc, val = line_aa(exa[0], exa[1], exb[0], exb[1])
-                img_visual[rr, cc] = val.reshape(-1,1) * [0,255,0]
-            else:
-                rr, cc = line(exa[0], exa[1], exb[0], exb[1])
-                img_visual[rr, cc] = [0,255,0]
+    img = cv2.imread(IMG_PATH, 0)
+    img_bgr = np.stack((img,)*3, axis=-1)  # changing from Mono to BGR format (by copying content from Mono channel to all channels)
+    
+    # draw lines
+    img_graph = draw_lines_between_vertexes(vertexes, [0,255,0], img_bgr)  # green. original segmented image with graph overlaid
+    img_outline = cv2.inRange(img_graph, np.array([0,255,0]), np.array([0,255,0]))  # different image with ONLY graph outline
 
-    for px in lpvertices:  # old vertexes list
-        img_visual[px[0], px[1]] = (0,0,255)  # red
+    # draw vertexes
+    img_neighbors = bwmorph._neighbors_conv(img==255)
+    naive_vertexes = np.transpose(np.where(img_neighbors>2)).tolist()
+    img_graph_vertexes = draw_vertexes(naive_vertexes, [0,0,255], img_graph)
+    postprocessed_vertexes = [c for c in [v.yx for v in vertexes]]
+    img_graph_vertexes = draw_vertexes(postprocessed_vertexes, [255,128,128], img_graph)
+    
+    # distance transform images (for image segmentation improvement attempts)
+    img_dt_original = dist_transform.dt(img)
+    img_dt_outline = dist_transform.dt(img_outline)
 
-    for i in vertexes:  # new vertexes list
-        px = vertexes[i]['center']
-        img_visual[px[0], px[1]] = (255,128,128)  # weird lightblue
+    # write everything to disk
+    cv2.imwrite('_graph.png', img_graph_vertexes)
+    cv2.imwrite('_outline.png', img_outline)
+    cv2.imwrite('_dt-original.png', img_dt_original)
+    cv2.imwrite('_dt-outline.png', img_dt_outline)
 
 
-    cv2.imwrite('_graph.png', img_visual)
-    return vertexes  # arbitrary value as of now
+
+# heart
+def graph_routine(img_path):
+    img = cv2.imread(IMG_PATH, 0)
+    graph_og = gen_graph(img)
+    graph_merged = merge_vertexes(graph_og)
+    graph = remove_isolated_vertexes(graph_merged)
+    return graph
 
 
-vertexes = gen_graph(IMG_PATH)
-print_vertexes(vertexes)
-qs = quick_stats(vertexes, 'dist')
-print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))
+
+def main():
+    # generate and process graph
+    graph = graph_routine(IMG_PATH)
+    gen_images(graph.vertexes)
+
+    # results and quick stats
+    qs = quick_stats(graph.vertexes, 'dist')
+    print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))
+    # graph.print_vertexes()
+    # desc.norm_vertexes(vertexes)
+
+main()
