@@ -1,8 +1,14 @@
 import desc
 
+"""             ESTRUTURA DO GRAPH
+
+    vertexes[] = um array de objetos do tipo Vertex
+
+"""
 class Graph:
     def __init__(self):
-        self.vertexes = list()
+        self.vertexes:list[Vertex] = list()
+        self.avg_distances:int                  # nao implementado
     
     def __str__(self):
         return("vertexes: %d  |  edges: %d" % (len(self.vertexes), self.count_edges()))
@@ -43,12 +49,23 @@ class Graph:
             self.create_edge(new_pos, n)
 
 
+"""             ESTRUTURA DO VERTEX
+
+    graph = contem o ponteiro para o objeto Graph o qual esse Vertex pertence
+    
+    i = o indice que esse Vertex se encontra no objeto Graph
+    
+    yx = lista com as cordenadas y , x
+    
+    neighs[] = um array de objetos do tipo Neigh
+
+"""
 class Vertex():
     def __init__(self, graph, i, yx=None, neighs=None):
-        self.graph = graph  # this reference is necessary if we wanna use the neighbor add function
+        self.graph:Graph = graph  # this reference is necessary if we wanna use the neighbor add function
         self.i = i  # this should be only used for printing, and should be equal to the element's index as of now
         self.yx = yx if yx is not None else list()
-        self.neighs = neighs if neighs is not None else list()  # ideally would be a set in order to disallow duplicates, but we want ordering in order to prioritize neighsbors later
+        self.neighs:list[Neigh] = neighs if neighs is not None else list()  # ideally would be a set in order to disallow duplicates, but we want ordering in order to prioritize neighsbors later
 
     def __str__(self):
         print_i = -1 if self.i is None else self.i
@@ -60,6 +77,16 @@ class Vertex():
         self.neighs.append(Neigh(neigh_i, desc.calc_dist(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i]), desc.calc_ang(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i])))
 
 
+"""             ESTRUTURA DO NEIGH
+
+    i = o indice que esse vizinho se encontra no objeto Graph
+    
+    dist = a distancia entre o Vertex e esse vizinho
+    
+    ang = o angulo relativo entre o Vertex e esse vizinho
+    ( esse angulo é relativo aa horizontal, com valores entre 180 e -180 )
+
+"""
 class Neigh():
     def __init__(self, i, dist, ang):  # (graph,vertex) references used if we are to initialize (dist,ang) from the constructor
         self.i = i  # this one is actually necessary
