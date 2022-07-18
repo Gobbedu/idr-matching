@@ -18,19 +18,18 @@ class Graph:
             print(v)
 
     def remove_vertex(self, i):  # removes element in position to be removed (i) by replacing it with the last element
-        if i < len(self.vertexes):
-            for neigh_of_vertex in self.vertexes[i].neighs:  # removes dead reference from each neighbor
-                self.vertexes[neigh_of_vertex.i].neighs.pop([n.i for n in self.vertexes[neigh_of_vertex.i].neighs].index(i))  # the list comprehension finds the index of neighbor to update
+        for neigh_of_vertex in self.vertexes[i].neighs:  # removes dead reference from each neighbor
+            self.vertexes[neigh_of_vertex.i].neighs.pop([n.i for n in self.vertexes[neigh_of_vertex.i].neighs].index(i))  # the list comprehension finds the index of neighbor to update
 
+        if i < len(self.vertexes)-1:  # indexes range from 0..n-1. removing last element has simpler logic, since we don't need to move anything
             self.vertexes[i] = self.vertexes.pop()  # replaces element
             self.vertexes[i].i = i  # updates i for moved element
-
-            # updates indexes of neighbors for the moved vertex (they would still reference the final position)
-            for moved_neigh in self.vertexes[i].neighs:
+            for moved_neigh in self.vertexes[i].neighs:     # updates indexes of neighbors for the moved vertex (they would still reference the final position)
                 self.vertexes[moved_neigh.i].neighs[[n.i for n in self.vertexes[moved_neigh.i].neighs].index(len(self.vertexes))].i = i  # the list comprehension finds the index of neighbor to update
-
         else:  # if the element to remove is in the last index, just remove it
             self.vertexes.pop()
+
+
 
     def create_edge(self, i1, i2):
         self.vertexes[i1].add_neigh(i2)
