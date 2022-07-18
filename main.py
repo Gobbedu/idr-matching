@@ -27,11 +27,17 @@ dir2 = 'data/Jersey_S1-b'
 dir3 = 'data/Jersey_SMix'
 
 file0 = 'data/Jersey_S1-b/J102/J102_S1_13.png'
-  
+worst = 'data/Jersey_SMix/J101/J101_S1_3.png'
+best  = 'data/Jersey_SMix/J128/J128_S2_1.png'
 
 def main():
-    # idr_Features(file0).print_features(2)
-    min_false_rejection()
+    idr_Features(file0).print_features(2)
+    # min_false_rejection()
+    # min_bad_vertice()
+    # plot_ransac_matches('data/Jersey_SMix/J71/J71_S2_0.png', 'data/Jersey_SMix/J71/J71_S1_0.png')
+    # plot_ransac_matches('data/Jersey_SMix/J71/J71_S2_0.png', 'data/Jersey_SMix/J15/J15_S2_0.png')
+    # print_pares()
+    # gen_set_from(worst)
     # test_memoize()
     # evaluate_matches()
     # find_most_similar(file1, glob(dir3+'/*/*.png'), 1)
@@ -71,7 +77,7 @@ def evaluate_matches():
     r_values['min_samples'] = min_samples
 
     for residual_threshold in  [5, 10, 15, 20, 25, 30]:
-        result_dir = f"results/EER/only-coord/Filter{filter_val}_Ransac{residual_threshold}/"
+        result_dir = f"results/EER/all-in/Filter{filter_val}_Ransac{residual_threshold}/"
         try:
             os.makedirs(result_dir, exist_ok=True) 
         except Exception as e: 
@@ -94,10 +100,10 @@ def evaluate_matches():
 
 
 def min_false_rejection():
-    ransacs = [5, 10,]
+    ransacs = [5, 10, 15, 20, 25, 30]
     thresholds = np.arange(0.01, 1.01, 0.01)
     sessions = ['S1_intra', 'S2_intra', 'S1_inter', 'S2_inter']
-    metrics = ['only-dist', 'only-ang', 'only-coord']
+    metrics = ['only-dist', 'only-ang', 'only-coord', 'all-in']
     # format file path w/ parameters
     file = lambda met, ran, fil, session: f"results/EER/{met}/Filter{fil}_Ransac{ran}/{session}_f{fil}_r{ran}.dat"
 

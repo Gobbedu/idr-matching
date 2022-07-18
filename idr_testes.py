@@ -5,13 +5,203 @@
 import ast
 from threading import Thread
 from time import perf_counter
+
+import numpy
 from bovineMatcher import *
-from graph import graph
+from graph import aamain, graph
 from glob import glob
+
+from skimage import transform
+from skimage import img_as_float, data
+from PIL import Image
+
+
+### FUNCTIONS FOR PRODUCTION* ###
+
+def currate(files, probability):
+    """Save files where bad vertice probability is less than 'probability' 
+    returns extra list with data for debugging 
+
+    Args:
+        files (list): list of strings with path to binary img
+        probability (float): a value between 0 and 1, where 1 is no filter and 0 filters everyone
+
+    Returns: 
+        list: files where the occurances of bad vertices {#(neighbour < 3)/Total }
+        in an image is less than the given probability.
+    """
+    currated = []
+    
+    bois = list(set([boi.split('/')[2] for boi in files]))
+    
+    rawS1 = {boi: 0 for boi in bois}
+    curS1 = {boi: 0 for boi in bois} 
+    rawS2 = {boi: 0 for boi in bois}
+    curS2 = {boi: 0 for boi in bois} 
+    
+    filesS1 = [animal for animal in files if "S1" in animal]
+    filesS2 = [animal for animal in files if "S2" in animal]
+
+    # filter
+    for i, animal in enumerate(filesS1, start=1):
+        print(f'\rcurrated {i:3}:{len(filesS1)} from S1', end=' '*10)
+        boi = animal.split('/')[2]
+        rawS1[boi] += 1
+        tmp = idr_Features(animal)
+        if tmp.prob_badneigh < probability:
+            currated.append(animal)
+            curS1[boi] += 1
+    for i, animal in enumerate(filesS2, start=1):
+        print(f'\rcurrated {i:3}:{len(filesS2)} from S2', end=' '*10)
+        boi = animal.split('/')[2]
+        rawS2[boi] += 1
+        tmp = idr_Features(animal)
+        if tmp.prob_badneigh < probability:
+            currated.append(animal)
+            curS2[boi] += 1 
+    print()
+    # print(rawS1)
+    # print(curS1)
+    # print(rawS2)
+    # print(curS2)
+
+    return currated, [rawS1, rawS2, curS1, curS2]
+
+
+def simple_load(files, time=True):
+    """loads all files to python memoized decorator (cache)
+    in a serial manner, one by one
+
+    Args:
+        files (list): strings containing path to binary segmented images
+        time (Boolean): if True prints total time to load files to chache, True by default
+    """
+    start_time = perf_counter()
+
+    for a in files:
+        idr_Features(a)
+
+    end_time = perf_counter()
+    if time: print(f'It took {end_time- start_time :0.2f} second(s) to complete simple load.')
+        
+
+def threaded_load(files, time=True):
+    """loads all files to python memoized decorator (cache)
+    in a threaded manner, one thread for each file
+
+    Args:
+        files (list): strings containing path to binary segmented images
+        time (Boolean): if True prints total time to load files to chache, True by default
+    """
+    start_time = perf_counter()
+
+    threads = [Thread(target=gen_graph, args=(filename,)) for filename in files]
+    
+    for t in threads: t.start()
+    for t in threads: t.join()
+        
+    end_time = perf_counter()
+    if time: print(f'It took {end_time- start_time :0.2f} second(s) to complete threaded load.')
+ 
+ 
 
 
 dir3 = 'data/Jersey_SMix/'
 ### TESTING AND PLOTING ###
+
+def print_pares():
+    testeRansac = './data/Jersey_SMix/J71/J71_S2_0.png'
+    testeRansac2 = './data/Jersey_SMix/J71/J71_S1_0.png'
+
+    descritorTeste = idr_Features(testeRansac)
+    descritorTeste2 = idr_Features(testeRansac2)
+
+    resultadoTeste = idr_Matcher.match(descritorTeste, descritorTeste2)
+
+    file = open('results/testeRansac.txt', 'w')
+
+    for par in resultadoTeste :
+        for vertice in par :
+            # print(f'[{vertice[0]}, {vertice[1]}')
+            print(vertice)
+    #     #     file.write("[%d : %d]   " % (vertice[0] , vertice[1]))
+    #     # file.write("\n")
+
+    # file.close()
+
+
+def min_bad_vertice():
+    files = glob('data/Jersey_SMix/*/*.png')
+    
+    min_bad = ('name', 1)
+    max_bad = ('name', 0)
+    
+    """ 
+    for i, img in enumerate(files):
+        print(f'\rreading {i:3}:{len(files)}', end=' ')
+        aux = idr_Features(img);
+        
+        if(aux.prob_badneigh < min_bad[1]):
+            min_bad = (img, aux.prob_badneigh)
+            
+        if(aux.prob_badneigh > max_bad[1]):
+            max_bad = (img, aux.prob_badneigh)
+    """
+            
+    
+    # print(f'\nsmallest bad: {min_bad}')
+    # print(f'\greatest bad: {max_bad}')
+    # smallest bad: ('data/Jersey_SMix/J101/J101_S1_3.png', 0.10407239819004525)
+    # greatest bad: ('data/Jersey_SMix/J128/J128_S2_1.png', 0.7037037037037037)
+    aamain('data/Jersey_SMix/J101/J101_S1_3.png')
+    aamain('data/Jersey_SMix/J128/J128_S2_1.png')
+    
+
+def gen_set_from(bin_img):
+    new_set = set()
+    
+    path = bin_img.replace('.', '/').split('/')[-2]
+    save_set = f'data/genset_{path}/'
+    roi = bin_img.replace('png', 'jpg')
+    # img = cv2.imread(roi, 1)
+    
+    im = Image.open(roi)
+    im.save('_base_tf.png')
+
+    out = im.rotate(20)
+    out.save('_saida_tf.jpg')
+
+    aamain('_saida_tf.jpg')
+
+
+    ## TENTATIVA DE TRANSFORMAR GRAFO (nn funciona ainda)
+    # tform = transform.SimilarityTransform(
+    #     scale=0.5,
+    #     rotation=np.pi/12,
+    #     translation=(100, 50))
+    # print(tform.params)
+    # tf_img = transform.warp(img, tform.inverse)
+    # print(type(tf_img))
+    # rgb = scipy.misc.toimage(tf_img)
+    # rgb = Image.fromarray(tf_img)
+
+    # fig, ax = plt.subplots()
+    # ax.imshow(tf_img)
+    # _ = ax.set_title('Similarity transformation')
+    # plt.show()
+    
+    # roi = numpy.ndarray(roi, dtype=numpy.uint8)
+    # img = cv2.imread(roi, 0)
+    # img_f = img_as_float(img)
+    # tf_img = transform.warp(roi, tform.inverse)
+    # img = cv2.imread(tf_img, 0)
+    # cv2.imwrite('_saida_transform.png', rgb)
+    # cv2.imwrite('_saida_float.png', img_f)
+    # cv2.imwrite('_base_tf.png', img)
+
+    return new_set
+
+
 
 def sessions(files):
     """compares different metrics between sessions"""
@@ -266,98 +456,10 @@ def plot_ransac_matches(f1, f2):
     t2 = idr_Features(f2)
     
     matches = idr_Matcher.match(t1, t2)
+    print(f'len matches: {len(matches)}')
     # print(f"MATCHES[1]: {matches[0][1]}")
     # idr_Features._ransac_vertices(d1, d2, t1.bin_img, t2.bin_img)
     inl, src, dst = idr_Matcher.ransac(matches)
+    print(f'len match after ransac: {sum(inl)}')
     idr_Matcher.draw_matches(inl, src, dst, f1, f2)
 
-
-### READY FOR PRODUCTION* ###
-
-
-def currate(files, probability):
-    """Save files where bad vertice probability is less than 'probability' 
-    returns extra list with data for debugging 
-
-    Args:
-        files (list): list of strings with path to binary img
-        probability (float): a value between 0 and 1, where 1 is no filter and 0 filters everyone
-
-    Returns: 
-        list: files where the occurances of bad vertices {#(neighbour < 3)/Total }
-        in an image is less than the given probability.
-    """
-    currated = []
-    
-    bois = list(set([boi.split('/')[2] for boi in files]))
-    
-    rawS1 = {boi: 0 for boi in bois}
-    curS1 = {boi: 0 for boi in bois} 
-    rawS2 = {boi: 0 for boi in bois}
-    curS2 = {boi: 0 for boi in bois} 
-    
-    filesS1 = [animal for animal in files if "S1" in animal]
-    filesS2 = [animal for animal in files if "S2" in animal]
-
-    # filter
-    for i, animal in enumerate(filesS1, start=1):
-        print(f'\rcurrated {i:3}:{len(filesS1)} from S1', end=' '*10)
-        boi = animal.split('/')[2]
-        rawS1[boi] += 1
-        tmp = idr_Features(animal)
-        if tmp.prob_badneigh < probability:
-            currated.append(animal)
-            curS1[boi] += 1
-    for i, animal in enumerate(filesS2, start=1):
-        print(f'\rcurrated {i:3}:{len(filesS2)} from S2', end=' '*10)
-        boi = animal.split('/')[2]
-        rawS2[boi] += 1
-        tmp = idr_Features(animal)
-        if tmp.prob_badneigh < probability:
-            currated.append(animal)
-            curS2[boi] += 1 
-    print()
-    # print(rawS1)
-    # print(curS1)
-    # print(rawS2)
-    # print(curS2)
-
-    return currated, [rawS1, rawS2, curS1, curS2]
-
-
-def simple_load(files, time=True):
-    """loads all files to python memoized decorator (cache)
-    in a serial manner, one by one
-
-    Args:
-        files (list): strings containing path to binary segmented images
-        time (Boolean): if True prints total time to load files to chache, True by default
-    """
-    start_time = perf_counter()
-
-    for a in files:
-        idr_Features(a)
-
-    end_time = perf_counter()
-    if time: print(f'It took {end_time- start_time :0.2f} second(s) to complete simple load.')
-        
-
-def threaded_load(files, time=True):
-    """loads all files to python memoized decorator (cache)
-    in a threaded manner, one thread for each file
-
-    Args:
-        files (list): strings containing path to binary segmented images
-        time (Boolean): if True prints total time to load files to chache, True by default
-    """
-    start_time = perf_counter()
-
-    threads = [Thread(target=gen_graph, args=(filename,)) for filename in files]
-    
-    for t in threads: t.start()
-    for t in threads: t.join()
-        
-    end_time = perf_counter()
-    if time: print(f'It took {end_time- start_time :0.2f} second(s) to complete threaded load.')
- 
- 

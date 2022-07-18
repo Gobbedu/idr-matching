@@ -1,3 +1,6 @@
+__pycache__/
+results/
 data/
 *old*
-__pycache__/
+graph.py
+_*

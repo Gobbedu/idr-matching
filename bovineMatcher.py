@@ -105,8 +105,8 @@ class idr_Matcher:
         size_descr = len(list(dict1.values())[0])
         
         weights = [1]*size_descr    # all weights equal 1
-        weights[0:3] = [0]*3        # zeroes out dist descriptors
-        weights[3:6] = [0]*3        # zeroes out ang descriptors
+        # weights[0:3] = [0]*3        # zeroes out dist descriptors
+        # weights[3:6] = [0]*3        # zeroes out ang descriptors
         # weights[6:]  = [0]*6        # zeroes out weight of neigh coordinates 
         matches = []
       
@@ -163,12 +163,12 @@ class idr_Matcher:
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
         model_robust, inliers = ransac((src, cmp),
                                        skit.SimilarityTransform, 
-                                       min_samples= 3,
-                                       max_trials= 500,
-                                       residual_threshold= 5,
-                                    #    min_samples= ransac_specs['min_samples'],
-                                    #    max_trials= ransac_specs['max_trials'],
-                                    #    residual_threshold= ransac_specs['residual_threshold'],
+                                       min_samples          =   ransac_specs['max_trials'],
+                                       max_trials           =   ransac_specs['min_samples'],
+                                       residual_threshold   =   ransac_specs['residual_threshold'],
+                                    #    min_samples= 3,
+                                    #    max_trials= 500,
+                                    #    residual_threshold= 20,
                                        )
         
         # outliers are the boolean oposite of inliers
