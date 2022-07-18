@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import scipy
 from skimage.draw import line, line_aa
+import math     # adicionado por loi, para ordenar mestre
 
 # in folder, but not made by us
 import bwmorph
@@ -17,9 +18,6 @@ from graph import Graph
 from graph import Vertex
 from graph import Neigh
 
-
-IMG_PATH = './data/2-seg/Jersey_SMix/J8/J8_S2_0.png'
-# './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
 
 TOO_SHORT = 9.9
 ISO_NEIGH = 1
@@ -168,6 +166,52 @@ def remove_isolated_vertexes(graph):
 
 
 
+# alterna os vizinhos do meu vertex
+def alternate_neighbors(neigh1: int , neigh2: int, vertex: Vertex) :
+    temp_neigh = vertex.neighs[neigh1]
+    
+    vertex.neighs[neigh1] = vertex.neighs[neigh2]
+    vertex.neighs[neigh2] = temp_neigh
+    
+    return
+
+# possui complexidade (n + n-2)
+# seria legal uma forma de melhorar, mas estou sem criatividade e como
+# temos poucos vizinhos nao deve afetar muito
+def ordenate_neighbors(graph: Graph) :
+    print("post-processing 3: ordenate neighbor master according to horizontal angle")
+    
+    for vertex in graph.vertexes :
+        master_index = 0
+        master_angle = 7
+    
+        for neighbor in range(len(vertex.neighs)) :
+            angle = vertex.neighs[neighbor].ang
+            if (angle > math.pi) :                        # ha uma forma de analisar todos os angulos sem esse if
+                angle -= (math.pi)*2                      # mas eh menos eficiente... ( sin(angle/2) )
+                angle = abs(angle)
+                
+            if (angle < master_angle) :                   # aquele que possuir menor angulo eh mestre
+                master_index = neighbor
+                master_angle = angle
+                
+        alternate_neighbors(master_index, 0, vertex)    # mestre descoberto e colocado no index 0
+        
+        #--
+        
+        # com o mestre no index 0, ordeno os outros vizinhos em ordem anti-horaria
+        neighbor = 1
+        while neighbor < (len(vertex.neighs)-1) :
+            if (vertex.neighs[neighbor].ang > vertex.neighs[neighbor + 1].ang) :
+                alternate_neighbors(neighbor, neighbor + 1, vertex)
+            
+            neighbor += 1
+            
+    print()
+    return graph
+
+
+
 
 # drawing to image functions. not necessary for actual functionality
 def draw_vertexes(coords_list, color, img_bgr):
@@ -188,14 +232,14 @@ def draw_lines_between_vertexes(vertexes, color, img_bgr):
 
 
 # generate and save images
-def gen_images(vertexes):
+def gen_images(img_path, vertexes):
     # generate pretty visual representation, just for show. remember that opencv uses BGR, not RGB
     # white (255,255,255) = original segmentation
     # red (0, 0, 255) = original vertex pixels before processing
     # blue (255,128,128) = vertex pixels after processing
     # green (0, 255, 0) = edges after processing vertexes
 
-    img = cv2.imread(IMG_PATH, 0)
+    img = cv2.imread(img_path, 0)
     img_bgr = np.stack((img,)*3, axis=-1)  # changing from Mono to BGR format (by copying content from Mono channel to all channels)
     
     # draw lines
@@ -223,23 +267,10 @@ def gen_images(vertexes):
 
 # heart
 def graph_routine(img_path):
-    img = cv2.imread(IMG_PATH, 0)
+    img = cv2.imread(img_path, 0)
     graph_og = gen_graph(img)
     graph_merged = merge_vertexes(graph_og)
-    graph = remove_isolated_vertexes(graph_merged)
+    graph_clean = remove_isolated_vertexes(graph_merged)
+    graph = ordenate_neighbors(graph_clean)
     return graph
 
-
-
-def main():
-    # generate and process graph
-    graph = graph_routine(IMG_PATH)
-    gen_images(graph.vertexes)
-
-    # results and quick stats
-    qs = quick_stats(graph.vertexes, 'dist')
-    print("dist ~ avg: %.2f | median: %.2f | min: %.2f | max: %.2f" % (qs[0], qs[1], qs[2], qs[3]))
-    # graph.print_vertexes()
-    # desc.norm_vertexes(vertexes)
-
-main()
