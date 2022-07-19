@@ -9,16 +9,20 @@ import graph
 SIMILARITY_TRESHOLD = 30
 
 
-# requer retoques para ficar de fato similar ao original
-def vertex_similarity(vertex1: graph.Vertex, vertex2: graph.Vertex) :
+# nao implementado 'pesos' para diferentes caracteristicas 
+def vertex_similarity(weights, vertex1: graph.Vertex, vertex2: graph.Vertex) :
     if (len(vertex1.neighs) != len(vertex2.neighs)) :       # se a quantidade de vizinhos for incompativel
         return SIMILARITY_TRESHOLD + 1                      # retorne um valor absurdo
     
+    avg_distance1 = vertex1.graph.avg_distances
+    avg_distance2 = vertex2.graph.avg_distances
     sum = 0
     
     for neigh in range(len(vertex1.neighs)) :
-        sum += (vertex1.neighs[neigh].ang - vertex2.neighs[neigh].ang)**2
-        sum += (vertex1.neighs[neigh].dist - vertex2.neighs[neigh].dist)**2
+        sum += weights[0] * (vertex1.neighs[neigh].ang - vertex2.neighs[neigh].ang)**2
+        sum += weights[1] * ((vertex1.neighs[neigh].dist / avg_distance1) - (vertex2.neighs[neigh].dist / avg_distance2))**2
+        sum += weights[2] * (vertex1.get_neigh_vertex(neigh).yx[0] - vertex2.get_neigh_vertex(neigh).yx[0])**2
+        sum += weights[2] * (vertex1.get_neigh_vertex(neigh).yx[1] - vertex2.get_neigh_vertex(neigh).yx[1])**2
         
     return sqrt(sum)
 
@@ -27,12 +31,15 @@ def vertex_similarity(vertex1: graph.Vertex, vertex2: graph.Vertex) :
 def match(graph1: graph.Graph , graph2: graph.Graph) :
     match_list = []
     
+    weights = [1 , 1 , 1]
+    # simula os pesos antigos, index0: angulos, index1: distancias, index2: coordenadas
+    
     for coord1 in graph1.vertexes :
         min_similarity = SIMILARITY_TRESHOLD
         match_coord = []
         
         for coord2 in graph2.vertexes :
-            similarity_value = vertex_similarity(coord1, coord2)
+            similarity_value = vertex_similarity(weights, coord1, coord2)
             
             if (similarity_value < min_similarity) :
                 min_similarity = similarity_value
@@ -43,7 +50,8 @@ def match(graph1: graph.Graph , graph2: graph.Graph) :
     
     return match_list
 
-
+"""
+TRADUZIREI O CODIGO ORIGINAL, DEPOIS EU PENSO EM FAZER ISSO...
 
 def recursive_part(local_group: list, min_similarity, vertex1: graph.Vertex , vertex2: graph.Vertex) :
     total_group = local_group
@@ -92,7 +100,7 @@ def match_recursive(graph1: graph.Graph , graph2: graph.Graph) :
     
     return match_list
 
-
+"""
 
 def ransac_filter(match_list, ransac_specs=None) :
     source = []
