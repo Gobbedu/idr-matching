@@ -92,6 +92,9 @@ class Neigh():
         self.i = i  # this one is actually necessary
         self.dist = dist
         self.ang = ang
+        
+    def get_neigh_vertex(self, neigh_i) :
+        return self.graph.vertexes[self.neighs[neigh_i].i]
 
     def __str__(self):
         return ("i: %d | dist: %.2f | ang: %.2f" % (self.i, self.dist, self.ang))
