@@ -8,7 +8,7 @@ import desc
 class Graph:
     def __init__(self):
         self.vertexes:list[Vertex] = list()
-        self.avg_distances:int                  # nao implementado
+        self.avg_distances:int
     
     def __str__(self):
         return("vertexes: %d  |  edges: %d" % (len(self.vertexes), self.count_edges()))
@@ -95,3 +95,4 @@ class Neigh():
 
     def __str__(self):
         return ("i: %d | dist: %.2f | ang: %.2f" % (self.i, self.dist, self.ang))
+
