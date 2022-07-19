@@ -9,7 +9,6 @@ import graph
 SIMILARITY_TRESHOLD = 30
 
 
-# nao implementado 'pesos' para diferentes caracteristicas 
 def vertex_similarity(weights, vertex1: graph.Vertex, vertex2: graph.Vertex) :
     if (len(vertex1.neighs) != len(vertex2.neighs)) :       # se a quantidade de vizinhos for incompativel
         return SIMILARITY_TRESHOLD + 1                      # retorne um valor absurdo
