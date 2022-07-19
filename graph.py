@@ -73,6 +73,9 @@ class Vertex():
         print_neighs = 'uninitialized' if self.neighs is None else [[n.i, round(n.dist,2), round(n.ang,2)] for n in self.neighs]
         return ("i: %d | yx: [%.0f, %.0f] | neighs: %s" % (print_i, print_yx[0], print_yx[1], print_neighs))
     
+    def get_neigh_vertex(self, neigh_i) :
+        return self.graph.vertexes[self.neighs[neigh_i].i]
+    
     def add_neigh(self, neigh_i):
         self.neighs.append(Neigh(neigh_i, desc.calc_dist(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i]), desc.calc_ang(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i])))
 
@@ -92,9 +95,6 @@ class Neigh():
         self.i = i  # this one is actually necessary
         self.dist = dist
         self.ang = ang
-        
-    def get_neigh_vertex(self, neigh_i) :
-        return self.graph.vertexes[self.neighs[neigh_i].i]
 
     def __str__(self):
         return ("i: %d | dist: %.2f | ang: %.2f" % (self.i, self.dist, self.ang))
