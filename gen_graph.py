@@ -178,14 +178,20 @@ def alternate_neighbors(neigh1: int , neigh2: int, vertex: Vertex) :
 # possui complexidade (n + n-2)
 # seria legal uma forma de melhorar, mas estou sem criatividade e como
 # temos poucos vizinhos nao deve afetar muito
-def ordenate_neighbors(graph: Graph) :
-    print("post-processing 3: ordenate neighbor master according to horizontal angle")
+def organize_for_matcher(graph: Graph) :
+    print("post-processing 3: ordenate neighbor master according to horizontal angle and calculate avg_distance\n")
+
+    sum_of_dist = 0
+    number_of_distances = 0
     
     for vertex in graph.vertexes :
         master_index = 0
         master_angle = 7
     
         for neighbor in range(len(vertex.neighs)) :
+            sum_of_dist += vertex.neighs[neighbor].dist   # usados para calcular a distancia media
+            number_of_distances += 1
+            
             angle = vertex.neighs[neighbor].ang
             if (angle > math.pi) :                        # ha uma forma de analisar todos os angulos sem esse if
                 angle -= (math.pi)*2                      # mas eh menos eficiente... ( sin(angle/2) )
@@ -195,7 +201,7 @@ def ordenate_neighbors(graph: Graph) :
                 master_index = neighbor
                 master_angle = angle
                 
-        alternate_neighbors(master_index, 0, vertex)    # mestre descoberto e colocado no index 0
+        alternate_neighbors(master_index, 0, vertex)      # mestre descoberto e colocado no index 0
         
         #--
         
@@ -206,8 +212,20 @@ def ordenate_neighbors(graph: Graph) :
                 alternate_neighbors(neighbor, neighbor + 1, vertex)
             
             neighbor += 1
-            
-    print()
+    
+    # agora a segunda parte, calcular a distancia media
+    
+    graph.avg_distances = (sum_of_dist / number_of_distances)
+    print('Avg_distance obtained: %f\n' % graph.avg_distances)
+    
+    """ explicacao matematica, pegamos todas as distancias calculadas por todos os vizinhos
+        dessas, dividimos por 2, ja que sempre somaremos 2 vezes a mesma distancia, uma no
+        primeiro vizinho e a outra no seu conjugue. Entao dividimos pela quantidade de
+        distancias existentes, porem sempre passamos 2 vezes a mesma distancia, 
+        logo dividimos essa quantidade por 2 as 2 divizoes diferentes se anulam       """
+    # avg_distance = sum/2  /  number/2  ... avg_distance = sum/number
+    
+    
     return graph
 
 
@@ -271,6 +289,6 @@ def graph_routine(img_path):
     graph_og = gen_graph(img)
     graph_merged = merge_vertexes(graph_og)
     graph_clean = remove_isolated_vertexes(graph_merged)
-    graph = ordenate_neighbors(graph_clean)
+    graph = organize_for_matcher(graph_clean)
+    print('\n\n---Gen_routine End---\n\n')
     return graph
-
