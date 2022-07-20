@@ -107,7 +107,7 @@ def merge_vertexes(graph: Graph):
     merged_vertexes = []  # just for printing
 
     i = 0
-    while i < (len(vertexes)-1):
+    while i < len(vertexes):
         
         to_merge = [i]
         
@@ -137,7 +137,7 @@ def merge_vertexes(graph: Graph):
             yx[1] = yx[1]/len(to_merge)                 # calcula a media da distancia de tds vertices
             all_neighs = list(set(all_neighs))          # remove duplicatas
             
-            
+            graph.add_vertex(yx, all_neighs)
             
             for remove_vertex in to_merge :
                 graph.remove_vertex(remove_vertex)      # entao remove todos os vertices merged
