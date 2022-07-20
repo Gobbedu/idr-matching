@@ -34,9 +34,10 @@ from matplotlib import pyplot as plt
 testeImg = './data/Jersey_SMix/J71/J71_S2_0.png'
 testeImg2 = './data/Jersey_SMix/J71/J71_S1_0.png'
 
+# test gen_graph
 def amain():
     GraficoTeste = gen_graph.graph_routine(testeImg)
-
+    
     file = open('results/testeNovoGrafico.txt', 'w')
 
     for Vertex in range(len(GraficoTeste.vertexes)) :
@@ -52,27 +53,94 @@ def amain():
 
     return
 
-
+# test and save both match types individually
 def main():
     MatchTeste = gen_graph.graph_routine(testeImg)
     MatchTeste2 = gen_graph.graph_routine(testeImg2)
     
-    ResultadoMatch = bovine_matcher.match_recursive(MatchTeste, MatchTeste2)
+    ResultadoMatchRecursivo = bovine_matcher.match_recursive(MatchTeste, MatchTeste2)
+    ResultadoMatch = bovine_matcher.simple_match(MatchTeste, MatchTeste2)
     
-    file = open('results/testeNovoGrafico.txt', 'w')
+    
+    file = open('results/testeMatcher.txt', 'w')
+    
+    for match in ResultadoMatchRecursivo :
+        file.write('[%3d : %3d]  [%3d : %3d]\n' % (match[0][0] , match[0][1], match[1][0], match[1][1]))
+    file.write('-----==AGORA O RANSAC==-----\n\n')
+    
+    number_of_ransac_confirmations = 0
+    ResultadoRansac = bovine_matcher.ransac_filter(ResultadoMatchRecursivo)
+    
+    for match in range(len(ResultadoRansac[0])) :
+        if (ResultadoRansac[0][match]) :
+            number_of_ransac_confirmations += 1
+        file.write('Ransac: %d  ||  ' % ResultadoRansac[0][match])
+        file.write('[%3d : %3d]  [%3d : %3d]\n' % (ResultadoRansac[1][match][0], ResultadoRansac[1][match][1], ResultadoRansac[2][match][0], ResultadoRansac[2][match][1]))
+    file.write('soma do ransac: %d -----==END DO RECURSIVO==-----\n\n\n' % number_of_ransac_confirmations)
+    
+    
     
     for match in ResultadoMatch :
         file.write('[%3d : %3d]  [%3d : %3d]\n' % (match[0][0] , match[0][1], match[1][0], match[1][1]))
     file.write('-----==AGORA O RANSAC==-----\n\n')
     
-    
+    number_of_ransac_confirmations = 0
     ResultadoRansac = bovine_matcher.ransac_filter(ResultadoMatch)
     
     for match in range(len(ResultadoRansac[0])) :
+        if (ResultadoRansac[0][match]) :
+            number_of_ransac_confirmations += 1
         file.write('Ransac: %d  ||  ' % ResultadoRansac[0][match])
         file.write('[%3d : %3d]  [%3d : %3d]\n' % (ResultadoRansac[1][match][0], ResultadoRansac[1][match][1], ResultadoRansac[2][match][0], ResultadoRansac[2][match][1]))
-    file.write('-----==END==-----')
+    file.write('soma do ransac: %d -----==END==-----\n\n\n' % number_of_ransac_confirmations)
     
     file.close()
 
     return
+
+# compare both match types
+def emain():
+    MatchTeste = gen_graph.graph_routine(testeImg)
+    MatchTeste2 = gen_graph.graph_routine(testeImg2)
+    
+    ResultadoMatchRecursivo = bovine_matcher.match_recursive(MatchTeste, MatchTeste2)
+    ResultadoMatch = bovine_matcher.simple_match(MatchTeste, MatchTeste2)
+    
+    amout_of_repetition = 100
+    
+    sum_recursivo = 0
+    sum_normal = 0
+    
+    i = 0
+    while i < amout_of_repetition :
+        print('Next Batch')
+        i += 1
+        temp = 0
+        
+        Ransac1 = bovine_matcher.ransac_filter(ResultadoMatchRecursivo)
+        for match in range(len(Ransac1[0])) :
+            if (Ransac1[0][match]) :
+                temp += 1
+        print('ransac recursivo resultado: %d' % temp)
+        sum_recursivo += temp
+        
+        temp = 0
+        Ransac2 = bovine_matcher.ransac_filter(ResultadoMatch)
+        for match in range(len(Ransac2[0])) :
+            if (Ransac2[0][match]) :
+                temp += 1
+        print('ransac normal resultado: %d' % temp)
+        sum_normal += temp
+    
+    print('soma dos recursivos: %d' % sum_recursivo)
+    print('soma dos normais: %d' % sum_normal)
+    
+    print('media dos recursivos: %f' % (sum_recursivo/amout_of_repetition))
+    print('media dos normais: %f' % (sum_normal/amout_of_repetition))
+    
+
+    return
+
+
+if __name__ == "__main__":
+    main()
