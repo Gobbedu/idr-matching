@@ -27,11 +27,13 @@ dir2 = 'data/Jersey_S1-b'
 dir3 = 'data/Jersey_SMix'
 
 file0 = 'data/Jersey_S1-b/J102/J102_S1_13.png'
+
 worst = 'data/Jersey_SMix/J101/J101_S1_3.png'
 best  = 'data/Jersey_SMix/J128/J128_S2_1.png'
 
 def main():
-    idr_Features(file0).print_features(2)
+    # idr_Features(file0)
+    # idr_Features(file0).print_features(2)
     # min_false_rejection()
     # min_bad_vertice()
     # plot_ransac_matches('data/Jersey_SMix/J71/J71_S2_0.png', 'data/Jersey_SMix/J71/J71_S1_0.png')
@@ -39,7 +41,7 @@ def main():
     # print_pares()
     # gen_set_from(worst)
     # test_memoize()
-    # evaluate_matches()
+    evaluate_matches()
     # find_most_similar(file1, glob(dir3+'/*/*.png'), 1)
     return
 
@@ -76,8 +78,8 @@ def evaluate_matches():
     r_values['max_trials'] =  max_trials
     r_values['min_samples'] = min_samples
 
-    for residual_threshold in  [5, 10, 15, 20, 25, 30]:
-        result_dir = f"results/EER/all-in/Filter{filter_val}_Ransac{residual_threshold}/"
+    for residual_threshold in  [15, 20]:    # threshdolds pra testar no ransac
+        result_dir = f"results/EER/beta-ordered/ang+dist/Filter{filter_val}_Ransac{residual_threshold}/"
         try:
             os.makedirs(result_dir, exist_ok=True) 
         except Exception as e: 

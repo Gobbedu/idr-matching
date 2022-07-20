@@ -12,8 +12,9 @@ from skimage.feature import plot_matches
 import skimage.transform as skit
 
 from math import inf, sqrt, radians
-from graph import graph
-from gen_graph_old import gen_graph
+
+from jorge_gen_graph import graph_routine
+# from luiz_gen_graph import graph_routine
 
 
 # RANSAC_MIN_SAMPLES = 3
@@ -37,43 +38,52 @@ class idr_Features:
             where keypoints (tuple):  (x, y)
             descriptor (list): [d1, d2, d3, a1, a2, a3] d:distance, a:angulo
         """
-        # raw_descriptor = gen_graph(binary_img)  # old version
-        raw_descriptor = graph(binary_img)      # new version
-        self.len_raw = len(raw_descriptor)
+        graph = graph_routine(binary_img)
+        vertexes = graph.vertexes
+        
+        self.len_raw = len(vertexes)
         self.bin_img = binary_img
 
         self.features = {}
         self.avg_dist = 0
-
         self.prob_badneigh = 0
         
-        # RESHAPE DESCRIPTOR
-        for key in raw_descriptor:
-            if len(raw_descriptor[key]['neigh']) == 3:
-                self.features[tuple(raw_descriptor[key]['yx'])] = \
-                    raw_descriptor[key]['dist'] + \
-                    raw_descriptor[key]['ang'] + \
-                    [x for xs in list(map(lambda x: raw_descriptor[x]['yx'], raw_descriptor[key]['neigh'])) for x in xs]
-                    # ultimo append faz isso: [[a, b], [c, d], [e, f]] -> [a, b, c, d, e, f]
-                self.avg_dist += sum(raw_descriptor[key]['dist'])
-
+        # RESHAPE DESCRIPTOR (should adapt to graph class format later)
+        for v in vertexes:
+            if len(v.neighs) == 3:
+                self.features[tuple(v.yx)] = \
+                    [v.neighs[n].dist for n in range(3)] + \
+                    [v.neighs[n].ang for n in range(3)] 
+                    # [v.neighs[n].yx for n in range(3)] # coordenada dos vizinhos (todo)
+                self.avg_dist += (v.neighs[0].dist + v.neighs[1].dist + v.neighs[2].dist)
+                
             # count number of bad neighbours
-            elif len(raw_descriptor[key]['neigh']) < 3:
+            elif len(v.neighs) < 3:
                 self.prob_badneigh += 1
         
         # normalize
         self.avg_dist /= len(self.features)
         self.prob_badneigh /= self.len_raw
-        
         # NORMALIZE DISTANCE & DEGREES -> RADIANS
         for key in self.features:                   
             aux = []
             # aux += self.features[key][:6] # not normalized
             aux += list(map(lambda x: x/self.avg_dist, self.features[key][:3]))                         # dist / avg_dist                               
-            aux += list(map(lambda x: radians((x + 360)%360)/radians(360), self.features[key][3:6]))    # Degrees to radians
-            aux += list(map(lambda x: x/512, self.features[key][6:]))                                   # normalize coordinates
-
+            aux += list(map(lambda x: x/radians(360), self.features[key][3:6]))    # Degrees to radians
+            # aux += list(map(lambda x: radians((x + 360)%360)/radians(360), self.features[key][3:6]))    # Degrees to radians
+            # aux += list(map(lambda x: x/512, self.features[key][6:]))                                   # normalize coordinates
             self.features[key] = aux
+        
+        # max_ang = 0
+        # for key in self.features:
+        #     f = self.features[key]
+        #     print(f)
+        #     for ang in f[3:]: # :3 p/ dist
+        #         if ang > max_ang:
+        #             max_ang = ang
+                    
+        # print(f'max ang: {max_ang}')
+                
             
             
     def print_features(self, num):
@@ -136,7 +146,7 @@ class idr_Matcher:
         return matches
 
 
-    def ransac(matches, ransac_specs):
+    def ransac(matches):
         """separates data in matches with ransac into inliers and outliers
         returns (N,) array of inliers classified as True,
         together with a list of coordinates from source image (src) and compare image (cmp)
@@ -163,12 +173,12 @@ class idr_Matcher:
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
         model_robust, inliers = ransac((src, cmp),
                                        skit.SimilarityTransform, 
-                                       min_samples          =   ransac_specs['max_trials'],
-                                       max_trials           =   ransac_specs['min_samples'],
-                                       residual_threshold   =   ransac_specs['residual_threshold'],
-                                    #    min_samples= 3,
-                                    #    max_trials= 500,
-                                    #    residual_threshold= 20,
+                                    #    min_samples          =   ransac_specs['max_trials'],
+                                    #    max_trials           =   ransac_specs['min_samples'],
+                                    #    residual_threshold   =   ransac_specs['residual_threshold'],
+                                       min_samples= 3,
+                                       max_trials= 500,
+                                       residual_threshold= 20,
                                        )
         
         # outliers are the boolean oposite of inliers

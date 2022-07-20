@@ -7,7 +7,6 @@ from skimage.feature import peak_local_max
 from scipy import ndimage
 import skimage.segmentation
 from PIL import Image
-from sklearn.preprocessing import binarize
 
 import morph
 
@@ -22,7 +21,7 @@ def dt(img, min_distance_between_peaks=20, gaussian_kernel=9, adaptbin_block_siz
 
     # min_distance is an important parameter here, should mess around with it. maybe also num_peaks?
     dist_transform = ndimage.distance_transform_edt(img)
-    localMax = peak_local_max(dist_transform, indices=False, min_distance=min_distance_between_peaks, labels=img)
+    localMax = peak_local_max(dist_transform, min_distance=min_distance_between_peaks, labels=img)
     '''
     markers = ndimage.label(localMax, structure=numpy.ones((3, 3)))[0]
     

@@ -8,7 +8,6 @@ from time import perf_counter
 
 import numpy
 from bovineMatcher import *
-from graph import aamain, graph
 from glob import glob
 
 from skimage import transform
@@ -33,7 +32,7 @@ def currate(files, probability):
     currated = []
     
     bois = list(set([boi.split('/')[2] for boi in files]))
-    
+        
     rawS1 = {boi: 0 for boi in bois}
     curS1 = {boi: 0 for boi in bois} 
     rawS2 = {boi: 0 for boi in bois}
@@ -42,9 +41,34 @@ def currate(files, probability):
     filesS1 = [animal for animal in files if "S1" in animal]
     filesS2 = [animal for animal in files if "S2" in animal]
 
+
+    filesS1.remove('data/Jersey_SMix/J357/J357_S1_0.png')
+    filesS1.remove('data/Jersey_SMix/J357/J357_S1_1.png')
+    filesS1.remove('data/Jersey_SMix/J86/J86_S1_13.png')
+    filesS1.remove('data/Jersey_SMix/J71/J71_S1_17.png')
+    filesS1.remove('data/Jersey_SMix/J128/J128_S1_16.png')
+    filesS1.remove('data/Jersey_SMix/J128/J128_S1_1.png')
+    filesS1.remove('data/Jersey_SMix/J91/J91_S1_1.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_6.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_17.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_12.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_16.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_13.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_11.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_14.png')
+    filesS1.remove('data/Jersey_SMix/J92/J92_S1_10.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_4.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_13.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_18.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_3.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_1.png')
+    filesS1.remove('data/Jersey_SMix/J423/J423_S1_0.png')
+    filesS1.remove('data/Jersey_SMix/J91/J91_S1_8.png')
+    
     # filter
     for i, animal in enumerate(filesS1, start=1):
-        print(f'\rcurrated {i:3}:{len(filesS1)} from S1', end=' '*10)
+        # print(f'\rcurrated {i:3}:{len(filesS1)} from S1', end=' '*10)
+        print(f'file: {animal}')
         boi = animal.split('/')[2]
         rawS1[boi] += 1
         tmp = idr_Features(animal)
@@ -52,7 +76,8 @@ def currate(files, probability):
             currated.append(animal)
             curS1[boi] += 1
     for i, animal in enumerate(filesS2, start=1):
-        print(f'\rcurrated {i:3}:{len(filesS2)} from S2', end=' '*10)
+        # print(f'\rcurrated {i:3}:{len(filesS2)} from S2', end=' '*10)
+        print(f'file: {animal}')
         boi = animal.split('/')[2]
         rawS2[boi] += 1
         tmp = idr_Features(animal)
@@ -153,8 +178,8 @@ def min_bad_vertice():
     # print(f'\greatest bad: {max_bad}')
     # smallest bad: ('data/Jersey_SMix/J101/J101_S1_3.png', 0.10407239819004525)
     # greatest bad: ('data/Jersey_SMix/J128/J128_S2_1.png', 0.7037037037037037)
-    aamain('data/Jersey_SMix/J101/J101_S1_3.png')
-    aamain('data/Jersey_SMix/J128/J128_S2_1.png')
+    # aamain('data/Jersey_SMix/J101/J101_S1_3.png')
+    # aamain('data/Jersey_SMix/J128/J128_S2_1.png')
     
 
 def gen_set_from(bin_img):
@@ -171,7 +196,7 @@ def gen_set_from(bin_img):
     out = im.rotate(20)
     out.save('_saida_tf.jpg')
 
-    aamain('_saida_tf.jpg')
+    # aamain('_saida_tf.jpg')
 
 
     ## TENTATIVA DE TRANSFORMAR GRAFO (nn funciona ainda)
@@ -262,7 +287,7 @@ def plot_neigh_hist():
     data = {1: 0, 2: 0, 3: 0, 4: 0, '> 4':0}
 
     for file in files:
-        raw_descriptor = graph(file)        
+        raw_descriptor = gen_graph(file)        
         for key in raw_descriptor:
             N = len(raw_descriptor[key]['neigh'])
             if N <= 4:
