@@ -6,7 +6,7 @@ import skimage.transform as skit
 from math import sqrt
 import graph
 
-SIMILARITY_TRESHOLD = 1000
+SIMILARITY_TRESHOLD = 100
 
 
 def vertex_similarity(weights, vertex1: graph.Vertex, vertex2: graph.Vertex) :
@@ -26,7 +26,7 @@ def vertex_similarity(weights, vertex1: graph.Vertex, vertex2: graph.Vertex) :
 
 
 
-def match(graph1: graph.Graph , graph2: graph.Graph) :
+def simple_match(graph1: graph.Graph , graph2: graph.Graph) :
     match_list = []
     
     weights = [1 , 1 , 1]
@@ -52,32 +52,31 @@ def match(graph1: graph.Graph , graph2: graph.Graph) :
 #==========================================================================================
 
 def recursive_part(weights: list, local_group, match_list, min_similarity, vertex1: graph.Vertex , vertex2: graph.Vertex) :
-    for matches in match_list :                                     # impedimos que a recursao va ao infinito ao
-        if (vertex1.yx == matches[0]) :                                # impedir que ele repita vertices que ja estao na match_list
+    for matches in match_list :                                         # impedimos que a recursao va ao infinito ao
+        if (vertex1.yx == matches[0]) :                                 # impedir que ele repita vertices que ja estao na match_list
             return 0
     
     if (len(vertex1.neighs) != len(vertex2.neighs)) :
         return 0
     
     similarity_value = vertex_similarity(weights, vertex1, vertex2)
-    new_min_similarity = min_similarity
     
-    if (similarity_value < new_min_similarity * 1.10) :                     # o vertice tem uma margem de 10% de erro da similaridade anterior
-        new_min_similarity = (new_min_similarity + similarity_value)/2      # a media das 2 similaridades eh repassada na recursao
+    if (similarity_value < min_similarity) :
         
         local_group.append([vertex1.yx , vertex2.yx])                             # guardamos no grupo local que sera analisado depois
         match_list.append([vertex1.yx , vertex2.yx])                              # e guardamos na lista de matchs para a recursao saber quais vertices ja foram
         
         for i in range(len(vertex1.neighs)) :                               # por fim a recursao dos vizinhos
-            similarity_value += recursive_part(weights, local_group, match_list, new_min_similarity, vertex1.get_neigh_vertex(i), vertex2.get_neigh_vertex(i))
+            similarity_value += recursive_part(weights, local_group, match_list, similarity_value, vertex1.get_neigh_vertex(i), vertex2.get_neigh_vertex(i))
     
+        return similarity_value
     
-    return similarity_value
+    return 0
 
 
 def match_recursive(graph1: graph.Graph , graph2: graph.Graph) :
     match_list = []
-    weights = [1, 1, 1]
+    weights = [1, 0.5, 1]
     
     for coord1 in graph1.vertexes :
         
@@ -96,11 +95,12 @@ def match_recursive(graph1: graph.Graph , graph2: graph.Graph) :
                 entre os niveis de similaridade e o tamanho do grupo, quanto menor o nivel de similaridade
                 mais parecidos, quanto mais vertices no grupo local, melhor, ao diminuir o resultado        """
             if (len(temp_local_group) > 0) :
-                if (len(local_group) == 0 or (temp_similarity_value/len(temp_local_group)) < (similarity_value/len(local_group))) :
+                if (len(local_group) == 0 or (temp_similarity_value/(len(temp_local_group)*1.5)) < (similarity_value/(len(local_group)*1.5))) :
                     similarity_value = temp_similarity_value
                     local_group = list(temp_local_group)
 
-        # depois de analisarmos todos os matchs, salvamos o melhor
+        # depois de analisarmos todos os grupos locais, salvamos o melhor
+        
         for match in local_group :
             match_list.append(list(match))
             # colocar list() implica criar um novo objeto para n ter erro de referencia
