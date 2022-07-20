@@ -95,36 +95,55 @@ def gen_graph(img):
 
 
 
-def merge_vertexes(graph):
+def merge_vertexes(graph: Graph):
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
     # we do this step before the next one (removing isolated vertexes), as vertexes that are too close together would not be considered to be isolated
     print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 
-    vertexes = graph.vertexes  # just for readability
+    vertexes = graph.vertexes  # reference fix
 
     merge_counter = 0  # just for printing
     merged_vertexes = []  # just for printing
 
     i = 0
-    while i < len(vertexes):
+    while i < (len(vertexes)-1):
+        
+        to_merge = [i]
+        
         for neigh in vertexes[i].neighs:  # checks distance value of all edges for that vertex
             if neigh.dist < TOO_SHORT:  # found something to merge
                 # merges coordinates and neighbors, adds new vertex
-                neighs_of_vertex = [n.i for n in vertexes[i].neighs]  # indexes of neighbors of position 1
-                neighs_of_neigh = [n.i for n in vertexes[neigh.i].neighs]  # indexes of neighbors of position 2
-                all_neighs = set(neighs_of_vertex + neighs_of_neigh)
-                all_neighs.remove(i)
-                all_neighs.remove(neigh.i)
-                graph.add_vertex(np.around(np.add(vertexes[i].yx, vertexes[neigh.i].yx)/2).astype(int).tolist(), all_neighs)
-
-                # removes old vertexes
-                graph.remove_vertex(i)
-                graph.remove_vertex(neigh.i)
-
-                merge_counter += 1
-                merged_vertexes.append([i, neigh.i])
+                to_merge.append(neigh.i)
+        
+        if (len(to_merge) > 1) :
+            print('merging %d with' % i , to_merge[1:])
+            print(vertexes[i])
+            
+            merge_counter += 1
+            merged_vertexes.append(to_merge)
+            
+            all_neighs = []
+            yx = [0, 0]
+            
+            for merge_vertex in to_merge :
+                yx[0] += vertexes[merge_vertex].yx[0]
+                yx[1] += vertexes[merge_vertex].yx[1]
+                
+                for merged_neigh in vertexes[merge_vertex].neighs :
+                    all_neighs.append(merged_neigh.i)
+            
+            yx[0] = yx[0]/len(to_merge)
+            yx[1] = yx[1]/len(to_merge)                 # calcula a media da distancia de tds vertices
+            all_neighs = list(set(all_neighs))          # remove duplicatas
+            
+            
+            
+            for remove_vertex in to_merge :
+                graph.remove_vertex(remove_vertex)      # entao remove todos os vertices merged
+            
         i += 1
+        
 
     print("executed %d merges: %s" % (merge_counter, merged_vertexes))
 
