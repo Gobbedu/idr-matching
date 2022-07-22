@@ -137,19 +137,20 @@ def merge_vertexes(graph: Graph):
                 for merged_neigh in merge_vertex.neighs :
                     all_neighs.append(merged_neigh.i)
             
-            yx[0] = yx[0]/len(to_merge)
-            yx[1] = yx[1]/len(to_merge)                 # calcula a media da distancia de tds vertices
-            all_neighs = list(set(all_neighs))          # remove duplicatas
+            yx[0] = round(yx[0]/len(to_merge))
+            yx[1] = round(yx[1]/len(to_merge))                      # calcula a media da distancia de tds vertices
+            all_neighs = list(set(all_neighs))                      # remove duplicatas
             
-            graph.add_vertex(yx, all_neighs)            # cria o novo vertice
+            new_merged_vertex = graph.add_vertex(yx, all_neighs)                # cria o novo vertice
+            print('new merged vertex:: ', new_merged_vertex, '\n')
             
             for remove_vertex in to_merge :
-                graph.remove_vertex(remove_vertex.i)      # entao remove todos os vertices merged
+                graph.remove_vertex(remove_vertex.i)        # entao remove todos os vertices merged
             
         i += 1
         
 
-    print("executed %d merges: %s" % (merge_counter, merged_vertexes))
+    print("\nexecuted %d merges: %s" % (merge_counter, merged_vertexes))
 
     print(graph)
     print()
@@ -261,7 +262,7 @@ def draw_vertexes(coords_list, color, img_bgr):
     return img_bgr
     
 
-def draw_lines_between_vertexes(vertexes, color, img_bgr):
+def draw_lines_between_vertexes(vertexes: "list[Vertex]", color, img_bgr):
     for vertex in vertexes:
         exa = vertex.yx
         for ee in vertex.neighs:
@@ -309,9 +310,13 @@ def gen_images(img_path, vertexes):
 # heart
 def graph_routine(img_path):
     img = cv2.imread(img_path, 0)
+    
     graph_og = gen_graph(img)
+    
     graph_merged = merge_vertexes(graph_og)
+    
     graph_clean = remove_isolated_vertexes(graph_merged)
+    
     graph = organize_for_matcher(graph_clean)
-    print('\n\n---Gen_routine End---\n\n')
+    print('\n---Gen_routine End---\n')
     return graph
