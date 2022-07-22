@@ -1,3 +1,4 @@
+
 import desc
 
 """             ESTRUTURA DO GRAPH
@@ -24,25 +25,29 @@ class Graph:
             print(v)
 
     def remove_vertex(self, i):  # removes element in position to be removed (i) by replacing it with the last element
-        if i < len(self.vertexes):
-            for neigh_of_vertex in self.vertexes[i].neighs:  # removes dead reference from each neighbor
-                self.vertexes[neigh_of_vertex.i].neighs.pop([n.i for n in self.vertexes[neigh_of_vertex.i].neighs].index(i))  # the list comprehension finds the index of neighbor to update
+        for neigh_of_vertex in self.vertexes[i].neighs:  # removes dead reference from each neighbor
+            self.vertexes[neigh_of_vertex.i].neighs.pop([n.i for n in self.vertexes[neigh_of_vertex.i].neighs].index(i))  # the list comprehension finds the index of neighbor to update
 
+        if i < len(self.vertexes)-1:  # indexes range from 0..n-1. removing last element has simpler logic, since we don't need to move anything
             self.vertexes[i] = self.vertexes.pop()  # replaces element
             self.vertexes[i].i = i  # updates i for moved element
-
-            # updates indexes of neighbors for the moved vertex (they would still reference the final position)
-            for moved_neigh in self.vertexes[i].neighs:
+            for moved_neigh in self.vertexes[i].neighs:     # updates indexes of neighbors for the moved vertex (they would still reference the final position)
                 self.vertexes[moved_neigh.i].neighs[[n.i for n in self.vertexes[moved_neigh.i].neighs].index(len(self.vertexes))].i = i  # the list comprehension finds the index of neighbor to update
-
         else:  # if the element to remove is in the last index, just remove it
             self.vertexes.pop()
+            
+    def find_vertex(self, yx: list) :
+        for vertex in self.vertexes :
+            if (vertex.yx[0] == yx[0] and vertex.yx[1] == yx[1]) :
+                return vertex
+
+        return 0
 
     def create_edge(self, i1, i2):
         self.vertexes[i1].add_neigh(i2)
         self.vertexes[i2].add_neigh(i1)
 
-    def add_vertex(self, yx, list_neighs):
+    def add_vertex(self, yx:"list[int]", list_neighs:"list[Neigh]"):
         new_pos = len(self.vertexes)  # end of list
         self.vertexes.append(Vertex(self, new_pos, yx))
         for n in list_neighs:
@@ -61,9 +66,9 @@ class Graph:
 
 """
 class Vertex():
-    def __init__(self, graph, i, yx=None, neighs=None):
-        self.graph:Graph = graph  # this reference is necessary if we wanna use the neighbor add function
-        self.i = i  # this should be only used for printing, and should be equal to the element's index as of now
+    def __init__(self, graph:Graph, i, yx=None, neighs=None):
+        self.graph:Graph = graph                                            # this reference is necessary if we wanna use the neighbor add function
+        self.i = i                                                          # this should be only used for printing, and should be equal to the element's index as of now
         self.yx = yx if yx is not None else list()
         self.neighs:list[Neigh] = neighs if neighs is not None else list()  # ideally would be a set in order to disallow duplicates, but we want ordering in order to prioritize neighsbors later
 
@@ -98,4 +103,3 @@ class Neigh():
 
     def __str__(self):
         return ("i: %d | dist: %.2f | ang: %.2f" % (self.i, self.dist, self.ang))
-
