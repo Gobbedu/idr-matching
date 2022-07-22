@@ -41,17 +41,21 @@ class Graph:
             if (vertex.yx[0] == yx[0] and vertex.yx[1] == yx[1]) :
                 return vertex
 
-        return 0
+        print('ERRO: vetor nao encontrado')
+        return -1
 
     def create_edge(self, i1, i2):
         self.vertexes[i1].add_neigh(i2)
         self.vertexes[i2].add_neigh(i1)
 
-    def add_vertex(self, yx:"list[int]", list_neighs:"list[Neigh]"):
+    def add_vertex(self, yx:"list[int]", list_neighs:list):
         new_pos = len(self.vertexes)  # end of list
         self.vertexes.append(Vertex(self, new_pos, yx))
+        
         for n in list_neighs:
             self.create_edge(new_pos, n)
+            
+        return self.vertexes[new_pos]       # retorna o novo vertex criado
 
 
 """             ESTRUTURA DO VERTEX
@@ -82,6 +86,8 @@ class Vertex():
         return self.graph.vertexes[self.neighs[neigh_i].i]
     
     def add_neigh(self, neigh_i):
+        if neigh_i in [getattr(n,'i') for n in self.neighs]:  # if neighbor already exists, update neighbor by removing it and adding it again
+            self.neighs.pop([getattr(n,'i') for n in self.neighs].index(neigh_i))
         self.neighs.append(Neigh(neigh_i, desc.calc_dist(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i]), desc.calc_ang(self.graph.vertexes[self.i],self.graph.vertexes[neigh_i])))
 
 
@@ -103,3 +109,4 @@ class Neigh():
 
     def __str__(self):
         return ("i: %d | dist: %.2f | ang: %.2f" % (self.i, self.dist, self.ang))
+
