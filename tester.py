@@ -27,10 +27,10 @@ def graph_test():
 
     for img_path in filelist:
         try:
-            print("current image:", img_path)
+            print("current image: %s" % img_path)
             gen_graph.graph_routine(img_path)
-        except:
-            print("exception on image:", img_path)
+        except Exception as ex:
+            print("exception %s on image: %s" % (ex, img_path))
             exception_counter += 1
             exception_files.append(img_path)
     print("%d/%d images failed: %s" % (exception_counter, len(filelist), exception_files))
