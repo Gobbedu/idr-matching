@@ -1,3 +1,4 @@
+import numpy
 
 import desc
 
@@ -71,12 +72,14 @@ class Vertex():
         self.i = i                                                          # this should be only used for printing, and should be equal to the element's index as of now
         self.yx = yx if yx is not None else list()
         self.neighs:list[Neigh] = neighs if neighs is not None else list()  # ideally would be a set in order to disallow duplicates, but we want ordering in order to prioritize neighsbors later
+        self.polar = [numpy.sqrt(self.yx[0]**2 + self.yx[1]**2), numpy.arctan2(self.yx[0], self.yx[1])]  # rho, phi
 
     def __str__(self):
         print_i = -1 if self.i is None else self.i
         print_yx = [-1, -1] if self.yx is None else self.yx
         print_neighs = 'uninitialized' if self.neighs is None else [[n.i, round(n.dist,2), round(n.ang,2)] for n in self.neighs]
-        return ("i: %d | yx: [%.1f, %.1f] | neighs: %s" % (print_i, print_yx[0], print_yx[1], print_neighs))
+        print_polar = [-1, -1] if self.polar is None else self.polar
+        return ("i: %d | yx: [%.1f, %.1f] | neighs: %s | polar: [%.2f, %.2f]" % (print_i, print_yx[0], print_yx[1], print_neighs, print_polar[0], print_polar[1]))
     
     def get_neigh_vertex(self, neigh_i) :
         return self.graph.vertexes[self.neighs[neigh_i].i]
