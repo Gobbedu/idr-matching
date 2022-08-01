@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-from skimage.measure import ransac
+from skimage.measure import ransac as ski_ransac
 from skimage.feature import plot_matches
 import skimage.transform as skit
 
@@ -40,6 +40,7 @@ class idr_Features:
         """
         graph = graph_routine(binary_img)
         vertexes = graph.vertexes
+        # print(f'LEN VERTICES {binary_img}: {len(vertexes)}')
         
         self.len_raw = len(vertexes)
         self.bin_img = binary_img
@@ -146,7 +147,7 @@ class idr_Matcher:
         return matches
 
 
-    def ransac(matches):
+    def ransac(matches, ransac_specs=None):
         """separates data in matches with ransac into inliers and outliers
         returns (N,) array of inliers classified as True,
         together with a list of coordinates from source image (src) and compare image (cmp)
@@ -171,20 +172,17 @@ class idr_Matcher:
 
         # robustly estimate transform model with RANSAC
         # all points where residual (euclidian of transformed src to cmp) is less than treshold are inliers
-        model_robust, inliers = ransac((src, cmp),
-                                       skit.SimilarityTransform, 
-                                    #    min_samples          =   ransac_specs['max_trials'],
-                                    #    max_trials           =   ransac_specs['min_samples'],
-                                    #    residual_threshold   =   ransac_specs['residual_threshold'],
-                                       min_samples= 3,
-                                       max_trials= 500,
-                                       residual_threshold= 20,
-                                       )
+        model_robust, inliers = ski_ransac((src, cmp),
+            skit.SimilarityTransform, 
+            min_samples          =   3  if (ransac_specs == None) else ransac_specs['min_samples'],
+            max_trials           =  500 if (ransac_specs == None) else ransac_specs['max_trials'],
+            residual_threshold   =  20  if (ransac_specs == None) else ransac_specs['residual_threshold'],
+                                    )
         
         # outliers are the boolean oposite of inliers
         # outliers = inliers == False
 
-        return inliers, src, cmp
+        return inliers[:10], src, cmp
 
 
     def draw_matches(inliers, src, dst, file_img_orig, file_img_comp, save=False, out_img=None):

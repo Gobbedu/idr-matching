@@ -1,17 +1,22 @@
 #!/bin/python3
-
-"""File with experimental & under development code
 """
+    File with experimental & under development code
+"""
+from time import perf_counter
+from glob import glob
+import threading
+import random
+import ast
+import os
 
 from bovineMatcher import *
 from idr_testes import *
 import methods as use
 
-from time import perf_counter
-from glob import glob
-import random
-import ast
-import os
+from evaluator import evaluator
+# from luiz_gen_graph import *
+# from bovine_matcher import *
+
 
 file1 = './data/Jersey_SMix/J8/J8_S2_0.png'
 file2 = './data/Jersey_SMix/J8/J8_S2_1.png'
@@ -32,11 +37,27 @@ worst = 'data/Jersey_SMix/J101/J101_S1_3.png'
 best  = 'data/Jersey_SMix/J128/J128_S2_1.png'
 
 def main():
+
+    # files_teste = glob('data/Jersey_SMix/*/*.png')
+    
+    # r_values = dict()
+    # r_values['max_trials'] =  500
+    # r_values['min_samples'] = 3
+    # r_values['residual_threshold'] = 20
+    # if 'data/Jersey_SMix/J128/J128_S1_1.png' in files_teste:
+    #         files_teste.remove('data/Jersey_SMix/J128/J128_S1_1.png')
+    # if 'data/Jersey_SMix/J357/J357_S1_1.png' in files_teste:
+    #     files_teste.remove('data/Jersey_SMix/J357/J357_S1_1.png')
+
+    # graph_routine(worst)
+    # graph_routine('data/Jersey_SMix/J101/J101_S1_13.png')
+
     # idr_Features(file0)
     # idr_Features(file0).print_features(2)
     # min_false_rejection()
+    # find_most_similar(worst, files_teste, r_values)
     # min_bad_vertice()
-    # plot_ransac_matches('data/Jersey_SMix/J71/J71_S2_0.png', 'data/Jersey_SMix/J71/J71_S1_0.png')
+    # plot_ransac_matches('data/Jersey_SMix/J101/J101_S1_13.png',worst)
     # plot_ransac_matches('data/Jersey_SMix/J71/J71_S2_0.png', 'data/Jersey_SMix/J15/J15_S2_0.png')
     # print_pares()
     # gen_set_from(worst)
@@ -54,11 +75,38 @@ def overlap_graphs(img1, img2, save_path):
 
 
 def evaluate_matches():
-    animals = glob(dir3+'/*/*.png')   
+    animals = glob(dir3+'/*/*.png')  
+    for puta, q_PARIU in enumerate(animals):
+        print(f'\rparsed {puta}:{len(animals)}', end=' ')
+        try:
+            graph_routine(q_PARIU)
+        except:
+            print(f'ERRO: {q_PARIU}')  
+            animals.remove(q_PARIU)
     
     filesS1 = [file for file in animals if "S1" in file]
     filesS2 = [file for file in animals if "S2" in file]
+
+    findS1 = rand_bovines(filesS1)
+    findS2 = rand_bovines(filesS2)
+
+    eva = evaluator(idr_Matcher.match, idr_Matcher.ransac)
+    t1 = threading.Thread(target=eva.evaluate_match, args=(findS1, filesS1, '_luiz_intraS1_teste.png',))
+    t2 = threading.Thread(target=eva.evaluate_match, args=(findS2, filesS2, '_luiz_intraS2_teste.png',))
+    t3 = threading.Thread(target=eva.evaluate_match, args=(findS1, filesS2, '_luiz_S1interS2_teste.png',))
+    t4 = threading.Thread(target=eva.evaluate_match, args=(findS2, filesS1, '_luiz_S2interS1_teste.png',))
+    t1.start()
+    t2.start()
+    t3.start()
+    t4.start()
+    t1.join()
+    t2.join()
+    t3.join()
+    t4.join()
     
+
+
+    return
     # print(f'len S1 {len(filesS1)}, len S2 {len(filesS2)}')
     # # # save bad vertice probab greater than 25% (w/ p = .25 only 28/164 images pass on S2 )
     filter_val = 1
@@ -102,12 +150,14 @@ def evaluate_matches():
 
 
 def min_false_rejection():
-    ransacs = [5, 10, 15, 20, 25, 30]
+    # ransacs = [5, 10, 15, 20, 25, 30]
+    ransacs = [15]
     thresholds = np.arange(0.01, 1.01, 0.01)
     sessions = ['S1_intra', 'S2_intra', 'S1_inter', 'S2_inter']
-    metrics = ['only-dist', 'only-ang', 'only-coord', 'all-in']
+    # metrics = ['only-dist', 'only-ang', 'only-coord', 'all-in']
+    metrics = ['ang+dist']
     # format file path w/ parameters
-    file = lambda met, ran, fil, session: f"results/EER/{met}/Filter{fil}_Ransac{ran}/{session}_f{fil}_r{ran}.dat"
+    file = lambda met, ran, fil, session: f"results/EER/beta-ordered/{met}/Filter{fil}_Ransac{ran}/{session}_f{fil}_r{ran}.dat"
 
     # data of interest on saved file
     same_bov = 2
@@ -221,31 +271,33 @@ def find_most_similar(src_file, src_files, ransac_specs, plot_result=False):
     for compare in files:
         dst_name = compare.split('/')[-1]
         
-        comp = idr_Features(compare)
-        # dc = comp.descriptor
-        
-        matches = idr_Matcher.match(orig, comp)
-        inliers, src, dst = idr_Matcher.ransac(matches, ransac_specs)
-        outliers = inliers == False
-
-        sum_inl = sum(inliers)
-        sum_out = sum(outliers)
-        evaluate = sum_inl/len(inliers)
-
         # split data if belongs to same bovine or not
-        if compare.split('_')[-3] == src_name: 
+        if compare.split('_')[-3] == src_name and  compare.split('_')[-2] == src_file.split('_')[-2]: 
+            comp = idr_Features(compare)
+            # dc = comp.descriptor
+            
+            matches = idr_Matcher.match(orig, comp)
+            inliers, src, dst = idr_Matcher.ransac(matches, ransac_specs)
+            outliers = inliers == False
+
+            sum_inl = sum(inliers)
+            sum_out = sum(outliers)
+            evaluate = sum_inl/len(inliers)
+
             same_simi.append(evaluate)
             same_inl.append(sum_inl)
             same_oul.append(sum_out)
-        else:
-            diff_simi.append(evaluate)
-            diff_inl.append(sum_inl)
-            diff_oul.append(sum_out)
+            print(f'comparando com {compare} de similaridade {evaluate}')
+        # else:
+        #     diff_simi.append(evaluate)
+        #     diff_inl.append(sum_inl)
+        #     diff_oul.append(sum_out)
+
 
         # save match with greatest similarity
-        if evaluate > SIMILARITY:
-            fit = (inliers, src, dst, comp.bin_img)
-            SIMILARITY = evaluate
+        # if evaluate > SIMILARITY:
+        #     fit = (inliers, src, dst, comp.bin_img)
+        #     SIMILARITY = evaluate
 
         # plot every single attempted match
         # idr_Features.draw_ransac_matches(inliers, src, dst, src_file,
@@ -254,13 +306,13 @@ def find_most_similar(src_file, src_files, ransac_specs, plot_result=False):
     
     # plot best match
     # dst_name = fit[3].split('/')[-1]
-    compare_name = f"{src_file.split('/')[-1]}_to_{fit[3].split('/')[-1]}"
+    # compare_name = f"{src_file.split('/')[-1]}_to_{fit[3].split('/')[-1]}"
     
     # idr_Matcher.draw_matches(fit[0], fit[1], fit[2], src_file, fit[3],
     #                                 save=True, 
     # out_img=f'results/sessions/MATCH_{compare_name}')
                                     
-    data = [same_inl, diff_inl, same_oul, diff_oul, same_simi, diff_simi]
+    # data = [same_inl, diff_inl, same_oul, diff_oul, same_simi, diff_simi]
 
     # plot boxplot
     if plot_result:

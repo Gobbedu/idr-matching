@@ -42,33 +42,14 @@ def currate(files, probability):
     filesS2 = [animal for animal in files if "S2" in animal]
 
 
-    filesS1.remove('data/Jersey_SMix/J357/J357_S1_0.png')
-    filesS1.remove('data/Jersey_SMix/J357/J357_S1_1.png')
-    filesS1.remove('data/Jersey_SMix/J86/J86_S1_13.png')
-    filesS1.remove('data/Jersey_SMix/J71/J71_S1_17.png')
-    filesS1.remove('data/Jersey_SMix/J128/J128_S1_16.png')
-    filesS1.remove('data/Jersey_SMix/J128/J128_S1_1.png')
-    filesS1.remove('data/Jersey_SMix/J91/J91_S1_1.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_6.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_17.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_12.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_16.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_13.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_11.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_14.png')
-    filesS1.remove('data/Jersey_SMix/J92/J92_S1_10.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_4.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_13.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_18.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_3.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_1.png')
-    filesS1.remove('data/Jersey_SMix/J423/J423_S1_0.png')
-    filesS1.remove('data/Jersey_SMix/J91/J91_S1_8.png')
+    if 'data/Jersey_SMix/J128/J128_S1_1.png' in filesS1:
+        filesS1.remove('data/Jersey_SMix/J128/J128_S1_1.png')
+    if 'data/Jersey_SMix/J357/J357_S1_1.png' in filesS1:
+        filesS1.remove('data/Jersey_SMix/J357/J357_S1_1.png')
     
     # filter
     for i, animal in enumerate(filesS1, start=1):
-        # print(f'\rcurrated {i:3}:{len(filesS1)} from S1', end=' '*10)
-        print(f'file: {animal}')
+        print(f'\rcurrated {i:3}:{len(filesS1)} from S1 -> file: {animal}', end=' '*10)
         boi = animal.split('/')[2]
         rawS1[boi] += 1
         tmp = idr_Features(animal)
@@ -76,8 +57,7 @@ def currate(files, probability):
             currated.append(animal)
             curS1[boi] += 1
     for i, animal in enumerate(filesS2, start=1):
-        # print(f'\rcurrated {i:3}:{len(filesS2)} from S2', end=' '*10)
-        print(f'file: {animal}')
+        print(f'\rcurrated {i:3}:{len(filesS2)} from S2 -> file: {animal}', end=' '*10)
         boi = animal.split('/')[2]
         rawS2[boi] += 1
         tmp = idr_Features(animal)
@@ -311,7 +291,7 @@ def plot_neigh_hist():
     plt.savefig('results/histogram_neigh.png')
     
 
-def plot_roc(title, file_path, save):
+def plot_roc(title, same_bov_sim, diff_bov_sim, file_path, save):
     """Plots the False Acceptance & Rejection of a 
     dataset provided by file_path, where the similarity is stored in
     line 2 and 5 for same bovine and different bovine respectively
@@ -321,20 +301,20 @@ def plot_roc(title, file_path, save):
         file_path (string): path to dataset stored in a file as string
         save (boolean): if True save to file_path but as png, else just vizualize
     """
-    # lines of interest in saved file
-    same_bov = 2
-    diff_bov = 5
+    # # lines of interest in saved file
+    # same_bov = 2
+    # diff_bov = 5
 
-    # read and save data to list from file
-    same_bov_sim, diff_bov_sim = [], []
-    with open(file_path, 'r') as f:
-        for i, line in enumerate(f):
-            if i == same_bov -1:
-                # same_bov_sim = line.strip("][").split(', ') # string of list to list
-                same_bov_sim = ast.literal_eval(line)
-            if i == diff_bov -1:
-                # diff_bov_sim = line.strip("][").split(', ') # string of list to list
-                diff_bov_sim = ast.literal_eval(line)
+    # # read and save data to list from file
+    # same_bov_sim, diff_bov_sim = [], []
+    # with open(file_path, 'r') as f:
+    #     for i, line in enumerate(f):
+    #         if i == same_bov -1:
+    #             # same_bov_sim = line.strip("][").split(', ') # string of list to list
+    #             same_bov_sim = ast.literal_eval(line)
+    #         if i == diff_bov -1:
+    #             # diff_bov_sim = line.strip("][").split(', ') # string of list to list
+    #             diff_bov_sim = ast.literal_eval(line)
 
     # classify
     far, frr= [], []
@@ -372,7 +352,7 @@ def plot_roc(title, file_path, save):
     plt.suptitle(title)
 
     if save:
-        plt.savefig(file_path.split('.')[0]+'haha')
+        plt.savefig(file_path.split('.')[0]+'___')
     else:
         plt.show()
         

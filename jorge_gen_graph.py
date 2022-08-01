@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import scipy
 from skimage.draw import line, line_aa
+import math     # adicionado por loi, para ordenar mestre
 
 # in folder, but not made by us
 import bwmorph
@@ -18,8 +19,9 @@ from graph import Vertex
 from graph import Neigh
 
 
-IMG_PATH = './data/2-seg/Jersey_SMix/J8/J8_S2_0.png'
+IMG_PATH = './data/2-seg/Jersey_S1-b/J91/J91_S1_0.png'
 # './data/2-seg/Jersey_S1-b/J106/J106_S1_8.png'
+
 
 TOO_SHORT = 9.9
 ISO_NEIGH = 1
@@ -97,36 +99,55 @@ def gen_graph(img):
 
 
 
-def merge_vertexes(graph):
+def merge_vertexes(graph: Graph):
     # post-processing 1: merge vertexes that are too close together, as they should represent the same "real vertex".
     # if distance between two vertexes is too small, merge vertexes into their central coordinate.
     # we do this step before the next one (removing isolated vertexes), as vertexes that are too close together would not be considered to be isolated
     # print("post-processing 1: merge vertexes that are too close together (dist < %d)" % (TOO_SHORT))
 
-    vertexes = graph.vertexes  # just for readability
+    vertexes = graph.vertexes  # reference fix
 
     merge_counter = 0  # just for printing
     merged_vertexes = []  # just for printing
 
     i = 0
     while i < len(vertexes):
+        
+        to_merge = [i]
+        
         for neigh in vertexes[i].neighs:  # checks distance value of all edges for that vertex
             if neigh.dist < TOO_SHORT:  # found something to merge
                 # merges coordinates and neighbors, adds new vertex
-                neighs_of_vertex = [n.i for n in vertexes[i].neighs]  # indexes of neighbors of position 1
-                neighs_of_neigh = [n.i for n in vertexes[neigh.i].neighs]  # indexes of neighbors of position 2
-                all_neighs = set(neighs_of_vertex + neighs_of_neigh)
-                all_neighs.remove(i)
-                all_neighs.remove(neigh.i)
-                graph.add_vertex(np.around(np.add(vertexes[i].yx, vertexes[neigh.i].yx)/2).astype(int).tolist(), all_neighs)
-
-                # removes old vertexes
-                graph.remove_vertex(i)
-                graph.remove_vertex(neigh.i)
-
-                merge_counter += 1
-                merged_vertexes.append([i, neigh.i])
+                to_merge.append(neigh.i)
+        
+        if (len(to_merge) > 1) :
+            # print('merging %d with' % i , to_merge[1:])
+            # print(vertexes[i])
+            
+            merge_counter += 1
+            merged_vertexes.append(to_merge)
+            
+            all_neighs = []
+            yx = [0, 0]
+            
+            for merge_vertex in to_merge :
+                yx[0] += vertexes[merge_vertex].yx[0]
+                yx[1] += vertexes[merge_vertex].yx[1]
+                
+                for merged_neigh in vertexes[merge_vertex].neighs :
+                    all_neighs.append(merged_neigh.i)
+            
+            yx[0] = round(yx[0]/len(to_merge))
+            yx[1] = round(yx[1]/len(to_merge))                 # calcula a media da distancia de tds vertices
+            all_neighs = list(set(all_neighs))          # remove duplicatas
+            
+            graph.add_vertex(yx, all_neighs)
+            
+            for remove_vertex in to_merge :
+                graph.remove_vertex(remove_vertex)      # entao remove todos os vertices merged
+            
         i += 1
+        
 
     # print("executed %d merges: %s" % (merge_counter, merged_vertexes))
 
@@ -168,6 +189,72 @@ def remove_isolated_vertexes(graph):
 
 
 
+# alterna os vizinhos do meu vertex
+def alternate_neighbors(neigh1: int , neigh2: int, vertex: Vertex) :
+    temp_neigh = vertex.neighs[neigh1]
+    
+    vertex.neighs[neigh1] = vertex.neighs[neigh2]
+    vertex.neighs[neigh2] = temp_neigh
+    
+    return
+
+# possui complexidade (n + n-2)
+# seria legal uma forma de melhorar, mas estou sem criatividade e como
+# temos poucos vizinhos nao deve afetar muito
+def organize_for_matcher(graph: Graph) :
+    # print("post-processing 3: ordenate neighbor master according to horizontal angle and calculate avg_distance\n")
+
+    sum_of_dist = 0
+    number_of_distances = 0
+    
+    for vertex in graph.vertexes :
+        master_index = 0
+        master_angle = 7
+    
+        for neighbor in range(len(vertex.neighs)) :
+            sum_of_dist += vertex.neighs[neighbor].dist   # usados para calcular a distancia media
+            number_of_distances += 1
+            
+            angle = vertex.neighs[neighbor].ang
+            if (angle > math.pi) :                        # ha uma forma de analisar todos os angulos sem esse if
+                angle -= (math.pi)*2                      # mas eh menos eficiente... ( sin(angle/2) )
+                angle = abs(angle)
+                
+            if (angle < master_angle) :                   # aquele que possuir menor angulo eh mestre
+                master_index = neighbor
+                master_angle = angle
+                
+        alternate_neighbors(master_index, 0, vertex)      # mestre descoberto e colocado no index 0
+        
+        #--
+        
+        # com o mestre no index 0, ordeno os outros vizinhos em ordem anti-horaria
+        neighbor = 1
+        while neighbor < (len(vertex.neighs)-1) :
+            if (vertex.neighs[neighbor].ang > vertex.neighs[neighbor + 1].ang) :
+                alternate_neighbors(neighbor, neighbor + 1, vertex)
+            
+            neighbor += 1
+    
+    # agora a segunda parte, calcular a distancia media
+    if(number_of_distances == 0):
+        graph.avg_distances = 0
+    else:
+        graph.avg_distances = (sum_of_dist / number_of_distances)
+    # print('Avg_distance obtained: %f\n' % graph.avg_distances)
+    
+    """ explicacao matematica, pegamos todas as distancias calculadas por todos os vizinhos
+        dessas, dividimos por 2, ja que sempre somaremos 2 vezes a mesma distancia, uma no
+        primeiro vizinho e a outra no seu conjugue. Entao dividimos pela quantidade de
+        distancias existentes, porem sempre passamos 2 vezes a mesma distancia, 
+        logo dividimos essa quantidade por 2 as 2 divizoes diferentes se anulam       """
+    # avg_distance = sum/2  /  number/2  ... avg_distance = sum/number
+    
+    
+    return graph
+
+
+
 
 # drawing to image functions. not necessary for actual functionality
 def draw_vertexes(coords_list, color, img_bgr):
@@ -188,14 +275,14 @@ def draw_lines_between_vertexes(vertexes, color, img_bgr):
 
 
 # generate and save images
-def gen_images(vertexes):
+def gen_images(vertexes, img_path):
     # generate pretty visual representation, just for show. remember that opencv uses BGR, not RGB
     # white (255,255,255) = original segmentation
     # red (0, 0, 255) = original vertex pixels before processing
     # blue (255,128,128) = vertex pixels after processing
     # green (0, 255, 0) = edges after processing vertexes
 
-    img = cv2.imread(IMG_PATH, 0)
+    img = cv2.imread(img_path, 0)
     img_bgr = np.stack((img,)*3, axis=-1)  # changing from Mono to BGR format (by copying content from Mono channel to all channels)
     
     # draw lines
@@ -214,21 +301,24 @@ def gen_images(vertexes):
     img_dt_outline = dist_transform.dt(img_outline)
 
     # write everything to disk
-    cv2.imwrite('_graph.png', img_graph_vertexes)
-    cv2.imwrite('_outline.png', img_outline)
-    cv2.imwrite('_dt-original.png', img_dt_original)
-    cv2.imwrite('_dt-outline.png', img_dt_outline)
+    cv2.imwrite(img_path.replace("2-seg", "3-graph").replace(".png", "-graph.png"), img_graph_vertexes)
+    cv2.imwrite(img_path.replace("2-seg", "3-graph").replace(".png", "-outline.png"), img_outline)
+    # cv2.imwrite(img_path.replace("2-seg", "3-graph").replace(".png", "-dt_og.png"), img_outline)
+    # cv2.imwrite(img_path.replace("2-seg", "3-graph").replace(".png", "-dt_outline.png"), img_outline)
 
 
 
 # heart
 def graph_routine(img_path):
+    # print(f'path {img_path}')
     img = cv2.imread(img_path, 0)
     graph_og = gen_graph(img)
     graph_merged = merge_vertexes(graph_og)
-    graph = remove_isolated_vertexes(graph_merged)
+    graph_clean = remove_isolated_vertexes(graph_merged)
+    graph = organize_for_matcher(graph_clean)
+    # gen_images(graph.vertexes, img_path)
+    # print('\n\n---Gen_routine End---\n\n')
     return graph
-
 
 
 # def main():
