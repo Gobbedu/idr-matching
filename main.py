@@ -76,13 +76,13 @@ def overlap_graphs(img1, img2, save_path):
 
 def evaluate_matches():
     animals = glob(dir3+'/*/*.png')  
-    for puta, q_PARIU in enumerate(animals):
-        print(f'\rparsed {puta}:{len(animals)}', end=' ')
+    for i, boi in enumerate(animals):
+        print(f'\rparsed {i}:{len(animals)}', end=' ')
         try:
-            graph_routine(q_PARIU)
+            graph_routine(boi)
         except:
-            print(f'ERRO: {q_PARIU}')  
-            animals.remove(q_PARIU)
+            print(f'ERRO: {boi}')  
+            animals.remove(boi)
     
     filesS1 = [file for file in animals if "S1" in file]
     filesS2 = [file for file in animals if "S2" in file]
