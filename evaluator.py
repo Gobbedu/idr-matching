@@ -21,7 +21,44 @@ class evaluator:
         self.avg_dist   = dict()        # every src file has their average edge distance 
         self.all_simi   = dict()        # [src,cmp] : similarity of every comparison
 
+    def binImg_similarity(self, find, compare):
+        graph_find = graph_routine(find)
+        graph_comp = graph_routine(compare)
+        
+        comp_f = idr_Features(compare)
+        # dc = comp.descriptor
 
+        """ # My version of distance matching
+        find_f = idr_Features(find)
+        r_values['max_trials'] =  500
+        r_values['min_samples'] = 3
+        r_values['residual_threshold'] = 15
+        matches = idr_Matcher.match(find_f, comp_f)
+        inliers, src, dst = idr_Matcher.ransac(matches, r_values)
+                        
+        match_list = self.match_func(graph_find, graph_comp)        
+        inliers, source, compared = self.ransac_function(match_list)
+        """ 
+        
+        # se der ruim no match ou no ransac, printa o erro e continua   
+        try:
+            matches = match_recursive(graph_find, graph_comp)
+            inliers, source, compared = ransac_filter(matches)
+            similarity = sum(inliers)/len(inliers)              # metrica de similaridade, suficiente?
+
+        except Exception as e:
+            similarity = 0
+            print(f'ERRO: either {find} or {compare}')
+            print(e)
+            print()
+        
+        return similarity
+
+
+    """
+        Quais metricas salvar para gerar os graficos que queremos
+        e avaliar os diferentes métodos de comparacao & matching
+    """
     def evaluate_match(self, find_arr, compare_arr, save_in=None):
         # [...]/Jxxx_Sy_z.png => [...]/Jxxx = [-3] ; Sy = [-2]
         # match_func(graph, graph) should always return a list of pairs of coords yx [[yx1, yx2], [yx3, yx4], ...]
@@ -30,41 +67,12 @@ class evaluator:
         for k, find in enumerate(find_arr):
             for w, compare in enumerate(compare_arr):
                 print(f'\r{k}:{len(find)} finding match for {find} , {w}:{len(compare_arr)}', end=20*' ')
+                self.all_simi[find+'~'+compare] = self.binImg_similarity(find, compare);
 
-                graph_find = graph_routine(find)
-                graph_comp = graph_routine(compare)
-                
-                comp_f = idr_Features(compare)
-                # dc = comp.descriptor
-
-                """ # My version of distance matching
-                find_f = idr_Features(find)
-                r_values['max_trials'] =  500
-                r_values['min_samples'] = 3
-                r_values['residual_threshold'] = 15
-                matches = idr_Matcher.match(find_f, comp_f)
-                inliers, src, dst = idr_Matcher.ransac(matches, r_values)
-                                
-                match_list = self.match_func(graph_find, graph_comp)        
-                inliers, source, compared = self.ransac_function(match_list)
-                """    
-                matches = match_recursive(graph_find, graph_comp)
-                try:
-                    inliers, source, compared = ransac_filter(matches)
-                    similarity = self.similarity(inliers)
-                except :
-                    similarity = 0
-                    print(f'ERRO: either {find} or {compare}')
-                
-                self.all_simi[find+'~'+compare] = similarity
         
     
         self.plot_eer("same X different bovine similarity", save_in)
         return
-        
-            
-    def similarity(self, inliers):
-        return sum(inliers)/len(inliers)  
 
                     
     def plot_eer(self, title, a_simi, b_simi, save):

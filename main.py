@@ -80,9 +80,10 @@ def evaluate_matches():
         print(f'\rparsed {i}:{len(animals)}', end=' ')
         try:
             graph_routine(boi)
-        except:
+        except Exception as e:
             print(f'ERRO: {boi}')  
             animals.remove(boi)
+            print(e)
     
     filesS1 = [file for file in animals if "S1" in file]
     filesS2 = [file for file in animals if "S2" in file]
